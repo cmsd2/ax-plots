@@ -11,8 +11,7 @@
 load("ax_plotting.lisp")$
 load("stringproc")$
 
-/* Uncomment after running 'mxpm doc build' to enable ? and ?? help lookup */
-/* load("ax-plots-index.lisp")$ */
+load("ax-plots-index.lisp")$
 
 /* ========================================================================
  * JSON builder helpers
