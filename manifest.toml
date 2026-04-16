@@ -1,0 +1,12 @@
+[package]
+name = "ax-plots"
+version = "0.1.0"
+description = "Interactive Plotly.js plotting for Maxima via Aximar"
+license = "MIT"
+entry = "ax-plots.mac"
+doc = "doc/ax-plots.md"
+repository = "https://github.com/cmsd2/ax-plots"
+keywords = ["plotting", "plotly", "aximar", "visualization"]
+
+[test]
+files = ["rtest_ax-plots.mac"]

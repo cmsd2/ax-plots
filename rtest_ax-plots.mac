@@ -1,0 +1,22 @@
+/* Tests for ax-plots */
+
+/* load the package */
+(load("ax-plots"), true);
+true;
+
+/* JSON helpers produce correct output */
+ax__float_to_json(3.14);
+"3.14";
+
+ax__float_to_json(inf);
+"null";
+
+ax__float_list_to_json([1.0, 2.0, 3.0]);
+"[1.0,2.0,3.0]";
+
+ax__json_string("hello");
+"\"hello\"";
+
+/* style defaults are a list */
+listp(ax__default_style());
+true;
