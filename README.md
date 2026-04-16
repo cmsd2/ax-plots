@@ -1,5 +1,7 @@
 # ax-plots
 
+[![Docs](https://img.shields.io/badge/docs-online-blue)](https://cmsd2.github.io/ax-plots/)
+
 Interactive Plotly.js plotting for Maxima via [Aximar](https://github.com/cmsd2/aximar).
 
 Provides `ax_plot2d`, `ax_draw2d`, and `ax_draw3d` which produce Plotly.js JSON
