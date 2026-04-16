@@ -2,20 +2,10 @@
 (let (
 (deffn-defvr-pairs '(
 ; CONTENT: (<INDEX TOPIC> . (<FILENAME> <BYTE OFFSET> <LENGTH IN CHARACTERS> <NODE NAME>))
-("ax_bar" . ("ax-plots.info" 17069 471 "Function ax_bar categories values"))
-("ax_contour" . ("ax-plots.info" 19450 469 "Function ax_contour expr xvar xlo xhi yvar ylo yhi"))
-("ax_draw2d" . ("ax-plots.info" 4759 425 "Function ax_draw2d [args]"))
-("ax_draw3d" . ("ax-plots.info" 11865 356 "Function ax_draw3d [args]"))
-("ax_heatmap" . ("ax-plots.info" 21441 512 "Function ax_heatmap z_matrix"))
-("ax_histogram" . ("ax-plots.info" 23484 322 "Function ax_histogram data"))
-("ax_plot2d" . ("ax-plots.info" 1583 434 "Function ax_plot2d expr [var min max]"))
-("ax_polar" . ("ax-plots.info" 14731 400 "Function ax_polar expr [var min max]"))
-("ax_streamline" . ("ax-plots.info" 27503 674 "Function ax_streamline Fx Fy xvar xlo xhi yvar ylo yhi"))
-("ax_vector_field" . ("ax-plots.info" 25587 421 "Function ax_vector_field Fx Fy xvar xlo xhi yvar ylo yhi"))
 ))
 (section-pairs '(
 ; CONTENT: (<NODE NAME> . (<FILENAME> <BYTE OFFSET> <LENGTH IN CHARACTERS>))
-("Definitions for ax-plots" . ("ax-plots.info" 981 469))
+("Definitions for ax-plots" . ("ax-plots.info" 981 39))
 ("Introduction to ax-plots" . ("ax-plots.info" 514 315))
 )))
 (load-info-hashtables (maxima::maxima-load-pathname-directory) deffn-defvr-pairs section-pairs))
