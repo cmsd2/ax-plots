@@ -1,7 +1,5 @@
 ### Function: ax_draw2d ([args])
 
-`ax_draw2d(options, ..., graphic_object, ...)`
-
 Draw 2D interactive plots using Plotly.js. Accepts Maxima draw package objects and Aximar-specific objects, rendering them as interactive charts with pan, zoom, and hover.
 
 #### Supported Objects

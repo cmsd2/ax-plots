@@ -1,7 +1,5 @@
 ### Function: ax_contour (expr, xvar, xlo, xhi, yvar, ylo, yhi)
 
-`ax_contour(expr, xvar, xlo, xhi, yvar, ylo, yhi)`
-
 Filled contour plot of a 2D expression. Use inside `ax_draw2d`. Samples f(x,y) on a grid and renders as a Plotly contour chart with multiple filled levels.
 
 Distinct from `implicit()` which renders a single contour line at f(x,y)=0.

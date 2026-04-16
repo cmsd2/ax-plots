@@ -1,7 +1,5 @@
 ### Function: ax_histogram (data)
 
-`ax_histogram(data)`
-
 Histogram of numeric data. Use inside `ax_draw2d`. Takes a flat list of numbers; Plotly handles binning automatically.
 
 #### Examples

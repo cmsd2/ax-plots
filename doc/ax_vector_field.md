@@ -1,7 +1,5 @@
 ### Function: ax_vector_field (Fx, Fy, xvar, xlo, xhi, yvar, ylo, yhi)
 
-`ax_vector_field(Fx, Fy, xvar, xlo, xhi, yvar, ylo, yhi)`
-
 2D vector field (quiver) plot. Use inside `ax_draw2d`. Given a vector field F = (Fx(x,y), Fy(x,y)), samples on a grid and renders arrows showing the field direction and magnitude.
 
 #### Examples

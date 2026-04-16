@@ -1,12 +1,11 @@
 ### Function: ax_bar (categories, values)
 
-`ax_bar(categories, values)`
-`ax_bar(values)`
+Bar chart for labeled or numeric data. Use inside `ax_draw2d`.
 
-Bar chart. Use inside `ax_draw2d`. Two forms:
+Calling forms:
 
-1. **Labeled**: string category list + numeric value list
-2. **Simple**: just values (auto-numbered 1, 2, 3, ...)
+- `ax_bar(categories, values)` — string category list + numeric value list
+- `ax_bar(values)` — just values (auto-numbered 1, 2, 3, ...)
 
 For multiple series, use different `name` options and `bar_mode` layout option.
 

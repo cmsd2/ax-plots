@@ -1,9 +1,11 @@
 ### Function: ax_polar (expr, [var, min, max])
 
-`ax_polar(expr, [θ, min, max], options)`
-`ax_polar([expr_1, ..., expr_n], [θ, min, max], options)`
-
 Plot r(θ) curves in polar coordinates as interactive Plotly.js charts. Standalone function (like `ax_plot2d`).
+
+Calling forms:
+
+- `ax_polar(expr, [θ, min, max], options)` — single expression
+- `ax_polar([expr_1, ..., expr_n], [θ, min, max], options)` — multiple expressions
 
 #### Examples
 

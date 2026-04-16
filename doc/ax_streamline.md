@@ -1,7 +1,5 @@
 ### Function: ax_streamline (Fx, Fy, xvar, xlo, xhi, yvar, ylo, yhi)
 
-`ax_streamline(Fx, Fy, xvar, xlo, xhi, yvar, ylo, yhi)`
-
 Streamline / phase portrait curves for a 2D ODE system dx/dt = Fx(x,y), dy/dt = Fy(x,y). Use inside `ax_draw2d`. Integrates trajectories from initial points using RK4.
 
 Combine with `ax_vector_field` for a full phase portrait:

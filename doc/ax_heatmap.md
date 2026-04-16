@@ -1,14 +1,12 @@
 ### Function: ax_heatmap (z_matrix)
 
-`ax_heatmap(z_matrix)`
-`ax_heatmap(z_matrix, x_labels, y_labels)`
-`ax_heatmap(expr, xvar, xlo, xhi, yvar, ylo, yhi)`
+Heatmap visualization. Use inside `ax_draw2d`.
 
-Heatmap visualization. Use inside `ax_draw2d`. Three forms:
+Calling forms:
 
-1. **Matrix only**: pass a Maxima `matrix(...)` directly
-2. **Matrix + labels**: matrix with string lists for axis labels
-3. **Expression**: symbolic expression sampled on a grid
+- `ax_heatmap(z_matrix)` — pass a Maxima `matrix(...)` directly
+- `ax_heatmap(z_matrix, x_labels, y_labels)` — matrix with string lists for axis labels
+- `ax_heatmap(expr, xvar, xlo, xhi, yvar, ylo, yhi)` — symbolic expression sampled on a grid
 
 #### Examples
 

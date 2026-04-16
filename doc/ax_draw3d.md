@@ -1,7 +1,5 @@
 ### Function: ax_draw3d ([args])
 
-`ax_draw3d(options, ..., graphic_object, ...)`
-
 Draw 3D interactive plots using Plotly.js with WebGL rendering. Produces rotatable, zoomable 3D charts.
 
 #### Supported Draw Objects

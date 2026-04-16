@@ -1,9 +1,11 @@
 ### Function: ax_plot2d (expr, [var, min, max])
 
-`ax_plot2d(expr, [var, min, max], options)`
-`ax_plot2d([expr_1, ..., expr_n], [var, min, max], options)`
-
 Plot one or more expressions as interactive Plotly.js charts. This is a convenience wrapper around `ax_draw2d` that automatically creates `explicit()` objects from expressions.
+
+Calling forms:
+
+- `ax_plot2d(expr, [var, min, max], options)` — single expression
+- `ax_plot2d([expr_1, ..., expr_n], [var, min, max], options)` — multiple expressions
 
 #### Examples
 
