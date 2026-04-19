@@ -1,11 +1,19 @@
-### Function: ax_plot2d (expr, [var, min, max])
+### Function: ax_plot2d (y1, x1, y2, x2, ..., options)
 
-Plot one or more expressions as interactive Plotly.js charts. This is a convenience wrapper around `ax_draw2d` that automatically creates `explicit()` objects from expressions.
+Plot expressions and/or data as interactive Plotly.js line charts. Arguments are consumed as (y, x) pairs, where y is what to plot and x is the domain.
+
+Each pair can be:
+
+- **Expression + range**: y is an expression (or list of expressions), x is `[var, min, max]`
+- **Data + data**: y is a list or ndarray of values, x is a list or ndarray of coordinates
 
 Calling forms:
 
-- `ax_plot2d(expr, [var, min, max], options)` — single expression
-- `ax_plot2d([expr_1, ..., expr_n], [var, min, max], options)` — multiple expressions
+- `ax_plot2d(expr, [var, min, max])` — single expression
+- `ax_plot2d([expr_1, ..., expr_n], [var, min, max])` — multiple expressions sharing a range
+- `ax_plot2d(ys, xs)` — data pair (lists or ndarrays), plotted as lines
+- `ax_plot2d([ys_1, ..., ys_n], xs)` — multiple y series sharing one x
+- `ax_plot2d(expr, [var, lo, hi], ys, xs, ...)` — mixed expressions and data
 
 #### Examples
 
@@ -15,6 +23,26 @@ ax_plot2d(sin(x), [x, -%pi, %pi])$
 
 /* Multiple expressions */
 ax_plot2d([sin(x), cos(x)], [x, -5, 5])$
+
+/* Data from lists */
+ax_plot2d([1,4,9,16], [1,2,3,4])$
+
+/* Data from ndarrays (requires numerics package) */
+xs : np_linspace(-3, 3, 50)$
+ax_plot2d(np_mul(xs, xs), xs)$
+
+/* Apply a custom function with np_map */
+f(x) := x^3 - x$
+ax_plot2d(np_map(f, xs), xs)$
+
+/* Or use a lambda for quick one-off transforms */
+ax_plot2d(np_map(lambda([x], x^3 - x), xs), xs)$
+
+/* Multiple y series sharing x */
+ax_plot2d([np_pow(xs, 2), np_sin(xs)], xs)$
+
+/* Mixed expressions and data */
+ax_plot2d(sin(x), [x, -3, 3], np_pow(xs, 2), xs, title="Mixed")$
 
 /* With options */
 ax_plot2d(x^2, [x, -3, 3], title="Parabola", color="red")$

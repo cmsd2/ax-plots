@@ -7,7 +7,8 @@ Draw 3D interactive plots using Plotly.js with WebGL rendering. Produces rotatab
 | Object | Syntax | Description |
 |--------|--------|-------------|
 | `explicit` | `explicit(expr, x, xlo, xhi, y, ylo, yhi)` | A surface z=f(x,y) |
-| `points` | `points([[x1,y1,z1],[x2,y2,z2],...])` | 3D scatter points |
+| `points` | `points([[x1,y1,z1],...])` or `points(xs, ys, zs)` | 3D scatter points |
+| `lines` | `lines([[x1,y1,z1],...])` or `lines(xs, ys, zs)` | 3D line plot from data |
 
 #### Examples
 
@@ -17,6 +18,16 @@ ax_draw3d(explicit(sin(x)*cos(y), x, -%pi, %pi, y, -%pi, %pi))$
 
 /* 3D scatter */
 ax_draw3d(points([[1,1,1],[2,2,4],[3,3,9]]), marker_size=5)$
+
+/* 3D scatter with separate coordinate arrays */
+ax_draw3d(points([1,2,3], [4,5,6], [7,8,9]))$
+
+/* 3D line plot from data */
+ax_draw3d(lines([[0,0,0],[1,1,1],[2,0,2]]))$
+
+/* 3D line from separate arrays (e.g. ndarrays) */
+t : np_linspace(0, 6.28, 200)$
+ax_draw3d(lines(np_cos(t), np_sin(t), np_scale(0.1, t)))$
 
 /* With options */
 ax_draw3d(

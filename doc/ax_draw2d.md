@@ -10,7 +10,8 @@ Draw 2D interactive plots using Plotly.js. Accepts Maxima draw package objects a
 |--------|--------|-------------|
 | `explicit` | `explicit(expr, var, lo, hi)` | A curve y=f(x) |
 | `parametric` | `parametric(x(t), y(t), t, tlo, thi)` | A parametric curve |
-| `points` | `points([[x1,y1],[x2,y2],...])` | Scatter points |
+| `points` | `points([[x1,y1],...])` or `points(xs, ys)` | Scatter points |
+| `lines` | `lines([[x1,y1],...])` or `lines(xs, ys)` | Line plot from data |
 | `implicit` | `implicit(eqn, x, xlo, xhi, y, ylo, yhi)` | An implicit curve f(x,y)=0 |
 
 **Aximar objects:**
@@ -50,6 +51,22 @@ ax_draw2d(
   ax_histogram(makelist(random(100)/10.0, i, 1, 500)),
   nbins=20, title="Distribution"
 )$
+
+/* Line plot from data */
+ax_draw2d(lines([1,2,3,4,5], [1,4,9,16,25]))$
+
+/* Scatter with separate x/y lists */
+ax_draw2d(points([1,2,3,4,5], [1,4,9,16,25]))$
+
+/* Lines and points accept ndarrays (requires numerics package) */
+xs : np_linspace(-3, 3, 50)$
+ax_draw2d(
+  lines(xs, np_mul(xs, xs)),
+  points(xs, np_sin(xs))
+)$
+
+/* Use np_map with a lambda for custom transforms */
+ax_draw2d(lines(xs, np_map(lambda([x], x^3 - x), xs)))$
 
 /* Phase portrait: vector field + streamlines */
 ax_draw2d(

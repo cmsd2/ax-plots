@@ -47,6 +47,17 @@ ax__json_list(items) :=
   sconcat("[", simplode(items, ","), "]")$
 
 /* ========================================================================
+ * Optional ndarray support (numerics package)
+ *
+ * If the numerics package is loaded, ndarray objects are transparently
+ * converted to Maxima lists/matrices before plotting. If not loaded,
+ * these are identity functions. Load order does not matter.
+ * ======================================================================== */
+
+ax__maybe_list(x) := if ax__ndarray_p(x) then ax__ndarray_to_list(x) else x $
+ax__maybe_matrix(x) := if ax__ndarray_p(x) then ax__ndarray_to_matrix(x) else x $
+
+/* ========================================================================
  * Color mapping
  * ======================================================================== */
 
@@ -125,7 +136,7 @@ ax__trace_option_names : [color, fill_color, opacity, line_width, dash,
   boxpoints, boxmean, hole]$
 
 /* Draw object names we recognize */
-ax__draw_object_names : [explicit, parametric, points, implicit,
+ax__draw_object_names : [explicit, parametric, points, lines, implicit,
   ax_contour, ax_heatmap, ax_bar, ax_histogram,
   ax_vector_field, ax_streamline,
   parametric_surface, ax_contour3d, ax_vector_field3d,
@@ -486,17 +497,23 @@ ax__trace_parametric_2d(obj, style) := block(
   sconcat("{", simplode(parts, ","), "}"))$
 
 /* 2D points trace: points(data) → scatter markers
-   data can be [[x1,y1],[x2,y2],...] or [y1,y2,...] */
+   data can be [[x1,y1],[x2,y2],...] or [y1,y2,...]
+   Also supports points(xs, ys) with separate x and y lists/ndarrays */
 ax__trace_points_2d(obj, style) := block(
   [a, data, xs, ys, parts],
   a: args(obj),
-  data: a[1],
-  if listp(first(data)) then (
-    xs: map(first, data),
-    ys: map(second, data)
+  if length(a) = 2 then (
+    xs: ax__maybe_list(a[1]),
+    ys: ax__maybe_list(a[2])
   ) else (
-    xs: makelist(i, i, 1, length(data)),
-    ys: data
+    data: ax__maybe_list(a[1]),
+    if listp(first(data)) then (
+      xs: map(first, data),
+      ys: map(second, data)
+    ) else (
+      xs: makelist(i, i, 1, length(data)),
+      ys: data
+    )
   ),
   parts: [
     sconcat("\"x\":", ax__float_list_to_json(xs)),
@@ -506,6 +523,62 @@ ax__trace_points_2d(obj, style) := block(
     sconcat("\"marker\":", ax__build_marker_style(style))
   ],
   parts: append(parts, ax__build_trace_style(style, "points")),
+  sconcat("{", simplode(parts, ","), "}"))$
+
+/* 2D lines trace: lines(data) → scatter lines
+   data can be [[x1,y1],[x2,y2],...] or [y1,y2,...]
+   Also supports lines(xs, ys) with separate x and y lists/ndarrays */
+ax__trace_lines_2d(obj, style) := block(
+  [a, data, xs, ys, parts],
+  a: args(obj),
+  if length(a) = 2 then (
+    xs: ax__maybe_list(a[1]),
+    ys: ax__maybe_list(a[2])
+  ) else (
+    data: ax__maybe_list(a[1]),
+    if listp(first(data)) then (
+      xs: map(first, data),
+      ys: map(second, data)
+    ) else (
+      xs: makelist(i, i, 1, length(data)),
+      ys: data
+    )
+  ),
+  parts: [
+    sconcat("\"x\":", ax__float_list_to_json(xs)),
+    sconcat("\"y\":", ax__float_list_to_json(ys)),
+    "\"type\":\"scatter\"",
+    "\"mode\":\"lines\"",
+    sconcat("\"line\":", ax__build_line_style(style))
+  ],
+  parts: append(parts, ax__build_trace_style(style, "lines")),
+  sconcat("{", simplode(parts, ","), "}"))$
+
+/* 3D lines trace: lines(data) → scatter3d lines
+   data is [[x1,y1,z1],[x2,y2,z2],...]
+   Also supports lines(xs, ys, zs) with separate lists/ndarrays */
+ax__trace_lines_3d(obj, style) := block(
+  [a, data, xs, ys, zs, parts],
+  a: args(obj),
+  if length(a) = 3 then (
+    xs: ax__maybe_list(a[1]),
+    ys: ax__maybe_list(a[2]),
+    zs: ax__maybe_list(a[3])
+  ) else (
+    data: ax__maybe_list(a[1]),
+    xs: map(first, data),
+    ys: map(second, data),
+    zs: map(third, data)
+  ),
+  parts: [
+    sconcat("\"x\":", ax__float_list_to_json(xs)),
+    sconcat("\"y\":", ax__float_list_to_json(ys)),
+    sconcat("\"z\":", ax__float_list_to_json(zs)),
+    "\"type\":\"scatter3d\"",
+    "\"mode\":\"lines\"",
+    sconcat("\"line\":", ax__build_line_style(style))
+  ],
+  parts: append(parts, ax__build_trace_style(style, "lines")),
   sconcat("{", simplode(parts, ","), "}"))$
 
 /* 2D implicit trace: implicit(eqn, xvar, xlo, xhi, yvar, ylo, yhi) → contour at 0 */
@@ -556,14 +629,21 @@ ax__trace_explicit_3d(obj, style) := block(
   sconcat("{", simplode(parts, ","), "}"))$
 
 /* 3D points trace: points(data) → scatter3d markers
-   data is [[x1,y1,z1],[x2,y2,z2],...] */
+   data is [[x1,y1,z1],[x2,y2,z2],...]
+   Also supports points(xs, ys, zs) with separate lists/ndarrays */
 ax__trace_points_3d(obj, style) := block(
   [a, data, xs, ys, zs, parts],
   a: args(obj),
-  data: a[1],
-  xs: map(first, data),
-  ys: map(second, data),
-  zs: map(third, data),
+  if length(a) = 3 then (
+    xs: ax__maybe_list(a[1]),
+    ys: ax__maybe_list(a[2]),
+    zs: ax__maybe_list(a[3])
+  ) else (
+    data: ax__maybe_list(a[1]),
+    xs: map(first, data),
+    ys: map(second, data),
+    zs: map(third, data)
+  ),
   parts: [
     sconcat("\"x\":", ax__float_list_to_json(xs)),
     sconcat("\"y\":", ax__float_list_to_json(ys)),
@@ -774,7 +854,7 @@ ax__trace_heatmap_2d(obj, style) := block(
     ]
   ) else if nargs = 3 then (
     /* Matrix with labels: ax_heatmap(z_matrix, x_labels, y_labels) */
-    zmat: args(a[1]),  /* matrix → list of rows */
+    zmat: args(ax__maybe_matrix(a[1])),  /* matrix or ndarray → list of rows */
     xs: a[2], ys: a[3],
     parts: [
       sconcat("\"x\":", ax__string_list_to_json(xs)),
@@ -784,7 +864,7 @@ ax__trace_heatmap_2d(obj, style) := block(
     ]
   ) else if nargs = 1 then (
     /* Matrix only: ax_heatmap(z_matrix) */
-    zmat: args(a[1]),  /* matrix → list of rows */
+    zmat: args(ax__maybe_matrix(a[1])),  /* matrix or ndarray → list of rows */
     parts: [
       sconcat("\"z\":", ax__float_matrix_to_json(zmat)),
       "\"type\":\"heatmap\""
@@ -808,9 +888,9 @@ ax__trace_bar_2d(obj, style) := block(
   a: args(obj),
   nargs: length(a),
   if nargs = 2 then (
-    cats: a[1], vals: a[2]
+    cats: ax__maybe_list(a[1]), vals: ax__maybe_list(a[2])
   ) else if nargs = 1 then (
-    vals: a[1],
+    vals: ax__maybe_list(a[1]),
     cats: makelist(i, i, 1, length(vals))
   ) else
     error("ax_bar: expected 1 or 2 arguments"),
@@ -837,7 +917,7 @@ ax__trace_histogram_2d(obj, style) := block(
   a: args(obj),
   if length(a) # 1 then
     error("ax_histogram: expected 1 argument (data list)"),
-  data: a[1],
+  data: ax__maybe_list(a[1]),
   c: ax__style_get(style, color),
   nb: ax__style_get(style, nbins),
   parts: [
@@ -857,7 +937,7 @@ ax__trace_box_2d(obj, style) := block(
   a: args(obj),
   if length(a) < 1 or length(a) > 2 then
     error("ax_box: expected 1 or 2 arguments: ax_box(data) or ax_box(data, category)"),
-  data: a[1],
+  data: ax__maybe_list(a[1]),
   c: ax__style_get(style, color),
   bp: ax__style_get(style, boxpoints),
   bm: ax__style_get(style, boxmean),
@@ -897,7 +977,7 @@ ax__trace_violin_2d(obj, style) := block(
   a: args(obj),
   if length(a) < 1 or length(a) > 2 then
     error("ax_violin: expected 1 or 2 arguments: ax_violin(data) or ax_violin(data, category)"),
-  data: a[1],
+  data: ax__maybe_list(a[1]),
   c: ax__style_get(style, color),
   bp: ax__style_get(style, boxpoints),
   parts: [
@@ -930,7 +1010,7 @@ ax__trace_pie_2d(obj, style) := block(
   a: args(obj),
   if length(a) < 1 or length(a) > 2 then
     error("ax_pie: expected 1 or 2 arguments: ax_pie(values) or ax_pie(values, labels)"),
-  vals: a[1],
+  vals: ax__maybe_list(a[1]),
   parts: [
     sconcat("\"values\":", ax__float_list_to_json(vals)),
     "\"type\":\"pie\""
@@ -951,7 +1031,7 @@ ax__trace_error_bar_2d(obj, style) := block(
   a: args(obj),
   if length(a) < 3 or length(a) > 4 then
     error("ax_error_bar: expected 3 or 4 arguments: ax_error_bar(xs, ys, y_errors) or ax_error_bar(xs, ys, y_errors, x_errors)"),
-  xs: a[1], ys: a[2],
+  xs: ax__maybe_list(a[1]), ys: ax__maybe_list(a[2]),
   c: ax__style_get(style, color),
   parts: [
     sconcat("\"x\":", ax__float_list_to_json(xs)),
@@ -959,10 +1039,10 @@ ax__trace_error_bar_2d(obj, style) := block(
     "\"type\":\"scatter\"",
     "\"mode\":\"markers\"",
     sconcat("\"marker\":", ax__build_marker_style(style)),
-    sconcat("\"error_y\":{\"type\":\"data\",\"array\":", ax__float_list_to_json(a[3]), ",\"visible\":true}")
+    sconcat("\"error_y\":{\"type\":\"data\",\"array\":", ax__float_list_to_json(ax__maybe_list(a[3])), ",\"visible\":true}")
   ],
   if length(a) = 4 then
-    parts: endcons(sconcat("\"error_x\":{\"type\":\"data\",\"array\":", ax__float_list_to_json(a[4]), ",\"visible\":true}"), parts),
+    parts: endcons(sconcat("\"error_x\":{\"type\":\"data\",\"array\":", ax__float_list_to_json(ax__maybe_list(a[4])), ",\"visible\":true}"), parts),
   parts: append(parts, ax__build_trace_style(style, "error bars")),
   sconcat("{", simplode(parts, ","), "}"))$
 
@@ -1153,6 +1233,7 @@ ax__build_trace_2d(obj, style) := block([objop],
   if objop = explicit then ax__trace_explicit_2d(obj, style)
   else if objop = parametric then ax__trace_parametric_2d(obj, style)
   else if objop = points then ax__trace_points_2d(obj, style)
+  else if objop = lines then ax__trace_lines_2d(obj, style)
   else if objop = implicit then ax__trace_implicit_2d(obj, style)
   else if objop = ax_contour then ax__trace_contour_2d(obj, style)
   else if objop = ax_heatmap then ax__trace_heatmap_2d(obj, style)
@@ -1171,6 +1252,7 @@ ax__build_trace_3d(obj, style) := block([objop],
   objop: op(obj),
   if objop = explicit then ax__trace_explicit_3d(obj, style)
   else if objop = points then ax__trace_points_3d(obj, style)
+  else if objop = lines then ax__trace_lines_3d(obj, style)
   else if objop = parametric then ax__trace_parametric_3d(obj, style)
   else if objop = parametric_surface then ax__trace_parametric_surface_3d(obj, style)
   else if objop = implicit then ax__trace_implicit_3d(obj, style)
@@ -1346,35 +1428,65 @@ ax_draw3d([ax__args]) := block(
   'done
 )$
 
-/* ax_plot2d: syntactic sugar for simple function plotting.
-   ax_plot2d(expr, [x, a, b], opts...)
-   ax_plot2d([e1, e2, ...], [x, a, b], opts...) */
+/* Test whether an argument is a range [var, lo, hi]: a list of 3 with a
+   non-numeric symbol as first element */
+ax__is_range(x) :=
+  listp(x) and length(x) = 3 and symbolp(x[1]) and not numberp(x[1])$
+
+/* Test whether an argument is data: an ndarray or a list of numbers/sublists */
+ax__is_data(x) :=
+  ax__ndarray_p(x) or (listp(x) and length(x) > 0 and not symbolp(first(x)))$
+
+/* ax_plot2d: plot expressions and/or data as line plots.
+   Arguments are consumed as (y, x) pairs followed by options:
+     ax_plot2d(y1, x1, y2, x2, ..., opts...)
+   Where:
+     y — an expression, list of expressions, ndarray, or list of numbers
+     x — a range [var, lo, hi] (for expressions) or ndarray/list (for data)
+   Examples:
+     ax_plot2d(sin(x), [x, -%pi, %pi])
+     ax_plot2d([sin(x), cos(x)], [x, -3, 3])
+     ax_plot2d(ys, xs)
+     ax_plot2d(sin(x), [x, -3, 3], ys, xs, title="Mixed") */
 ax_plot2d([ax__args]) := block(
-  [exprs, range, var, lo, hi, draw_args, opts],
-  if length(ax__args) < 2 then
-    error("ax_plot2d requires at least an expression and a range"),
-  /* First arg: expression or list of expressions */
-  if listp(ax__args[1]) and length(ax__args[1]) = 3
-     and atom(ax__args[1][1]) then (
-    /* First arg is the range [x, a, b] — error */
-    error("ax_plot2d: first argument must be an expression or list of expressions")
-  ),
-  if listp(ax__args[1]) then
-    exprs: ax__args[1]
-  else
-    exprs: [ax__args[1]],
-  /* Second arg: range [var, lo, hi] */
-  range: ax__args[2],
-  if not listp(range) or length(range) # 3 then
-    error("ax_plot2d: range must be [variable, min, max]"),
-  var: range[1], lo: range[2], hi: range[3],
-  /* Remaining args are options */
-  opts: rest(ax__args, 2),
-  /* Build ax_draw2d arguments: explicit objects + options */
+  [draw_args, i, y_arg, x_arg],
+  if length(ax__args) < 1 then
+    error("ax_plot2d requires at least one argument"),
   draw_args: [],
-  for e in exprs do
-    draw_args: endcons(explicit(e, var, lo, hi), draw_args),
-  draw_args: append(draw_args, opts),
+  i: 1,
+  while i <= length(ax__args) do (
+    if ax__is_layout_option(ax__args[i]) or ax__is_trace_option(ax__args[i]) then (
+      /* Collect option */
+      draw_args: endcons(ax__args[i], draw_args),
+      i: i + 1
+    ) else (
+      /* Consume a (y, x) pair */
+      y_arg: ax__args[i],
+      if i + 1 > length(ax__args) then
+        error("ax_plot2d: missing range or x-data after", y_arg),
+      i: i + 1,
+      x_arg: ax__args[i],
+      i: i + 1,
+      if ax__is_range(x_arg) then (
+        /* Expression mode: y is expression(s), x is [var, lo, hi] */
+        if listp(y_arg) then
+          for e in y_arg do
+            draw_args: endcons(explicit(e, x_arg[1], x_arg[2], x_arg[3]), draw_args)
+        else
+          draw_args: endcons(explicit(y_arg, x_arg[1], x_arg[2], x_arg[3]), draw_args)
+      ) else if ax__is_data(x_arg) then (
+        /* Data mode: y is data, x is data */
+        if listp(y_arg) and length(y_arg) > 0
+           and (listp(first(y_arg)) or ax__ndarray_p(first(y_arg))) then
+          /* List of y series sharing one x */
+          for ys in y_arg do
+            draw_args: endcons(lines(x_arg, ys), draw_args)
+        else
+          draw_args: endcons(lines(x_arg, y_arg), draw_args)
+      ) else
+        error("ax_plot2d: expected a range [var,lo,hi] or data after", y_arg)
+    )
+  ),
   apply(ax_draw2d, draw_args)
 )$
 
