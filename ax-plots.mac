@@ -1063,7 +1063,7 @@ ax__trace_vector_field_2d(obj, style) := block(
   yvar: a[6], ylo: a[7], yhi: a[8],
 
   ng: ax__style_get(style, ngrid),
-  if ng = false then ng: 20,
+  if ng = false then ng: 12,
   sc: ax__style_get(style, arrow_scale),
   if sc = false then sc: 1.0,
   norm: ax__style_get(style, normalize),
@@ -1306,11 +1306,17 @@ ax__build_layout_2d(opts) := block(
     else if key = bar_mode then
       parts: endcons(sconcat("\"barmode\":", ax__json_string(val)), parts)
   ),
-  /* Default dimensions if not explicitly provided; auto skips the default */
+  /* Default dimensions if not explicitly provided; auto skips the default.
+     When aspect_ratio=true and no explicit height, use square dimensions
+     so the plot area doesn't get squished by scaleanchor. */
   if not member(width, map(lhs, opts)) then
     parts: endcons("\"width\":700", parts),
-  if not member(height, map(lhs, opts)) then
-    parts: endcons("\"height\":450", parts),
+  if not member(height, map(lhs, opts)) then (
+    if member(aspect_ratio, map(lhs, opts)) then
+      parts: endcons("\"height\":700", parts)
+    else
+      parts: endcons("\"height\":450", parts)
+  ),
   if xaxis_parts # [] then
     parts: endcons(sconcat("\"xaxis\":{", simplode(xaxis_parts, ","), "}"), parts),
   if yaxis_parts # [] then
