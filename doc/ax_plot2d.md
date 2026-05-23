@@ -73,5 +73,8 @@ Style options apply to subsequent traces until overridden:
 | `aspect_ratio` | Lock aspect ratio (`true`/`false`) |
 | `width` | Fixed plot width in pixels |
 | `height` | Fixed plot height in pixels |
+| `logx` / `logy` | Log-scale axes (`true`/`false`) |
+| `plot_bgcolor` | Plot-area background color (default `"white"`) |
+| `paper_bgcolor` | Outer figure background color (default `"white"`) |
 
 See also: `ax_draw2d`, `ax_draw3d`, `ax_polar`, `plot2d`

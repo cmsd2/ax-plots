@@ -126,5 +126,8 @@ Options use Plotly-native naming and apply to subsequent objects until overridde
 | `width` | Fixed plot width in pixels |
 | `height` | Fixed plot height in pixels |
 | `bar_mode` | Bar/histogram grouping: `"group"`, `"stack"`, `"overlay"` |
+| `logx` / `logy` | Log-scale axes (`true`/`false`) |
+| `plot_bgcolor` | Plot-area background color (default `"white"`) |
+| `paper_bgcolor` | Outer figure background color (default `"white"`) |
 
 See also: `ax_plot2d`, `ax_draw3d`, `ax_polar`, `draw2d`

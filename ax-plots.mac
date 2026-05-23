@@ -126,7 +126,8 @@ ax__style_set(style, key, val) := block([result],
 
 /* Layout option names */
 ax__layout_option_names : [title, xrange, yrange, zrange, grid, xaxis, yaxis,
-  xlabel, ylabel, zlabel, showlegend, aspect_ratio, width, height, bar_mode]$
+  xlabel, ylabel, zlabel, showlegend, aspect_ratio, width, height, bar_mode,
+  plot_bgcolor, paper_bgcolor, logx, logy, logz]$
 
 /* Trace/style option names */
 ax__trace_option_names : [color, fill_color, opacity, line_width, dash,
@@ -1305,6 +1306,18 @@ ax__build_layout_2d(opts) := block(
     )
     else if key = bar_mode then
       parts: endcons(sconcat("\"barmode\":", ax__json_string(val)), parts)
+    else if key = plot_bgcolor then
+      parts: endcons(sconcat("\"plot_bgcolor\":", ax__json_string(val)), parts)
+    else if key = paper_bgcolor then
+      parts: endcons(sconcat("\"paper_bgcolor\":", ax__json_string(val)), parts)
+    else if key = logx then (
+      if val then
+        xaxis_parts: endcons("\"type\":\"log\"", xaxis_parts)
+    )
+    else if key = logy then (
+      if val then
+        yaxis_parts: endcons("\"type\":\"log\"", yaxis_parts)
+    )
   ),
   /* Default dimensions if not explicitly provided; auto skips the default.
      When aspect_ratio=true and no explicit height, use square dimensions
@@ -1317,10 +1330,16 @@ ax__build_layout_2d(opts) := block(
     else
       parts: endcons("\"height\":450", parts)
   ),
-  if xaxis_parts # [] then
-    parts: endcons(sconcat("\"xaxis\":{", simplode(xaxis_parts, ","), "}"), parts),
-  if yaxis_parts # [] then
-    parts: endcons(sconcat("\"yaxis\":{", simplode(yaxis_parts, ","), "}"), parts),
+  /* White background by default (Plotly's default is light blue #E5ECF6) */
+  if not member(plot_bgcolor, map(lhs, opts)) then
+    parts: endcons("\"plot_bgcolor\":\"white\"", parts),
+  if not member(paper_bgcolor, map(lhs, opts)) then
+    parts: endcons("\"paper_bgcolor\":\"white\"", parts),
+  /* Axis line and grid colors for white background */
+  xaxis_parts: endcons("\"gridcolor\":\"#ddd\",\"linecolor\":\"#ddd\",\"linewidth\":1,\"zerolinecolor\":\"black\",\"zerolinewidth\":1", xaxis_parts),
+  yaxis_parts: endcons("\"gridcolor\":\"#ddd\",\"linecolor\":\"#ddd\",\"linewidth\":1,\"zerolinecolor\":\"black\",\"zerolinewidth\":1", yaxis_parts),
+  parts: endcons(sconcat("\"xaxis\":{", simplode(xaxis_parts, ","), "}"), parts),
+  parts: endcons(sconcat("\"yaxis\":{", simplode(yaxis_parts, ","), "}"), parts),
   sconcat("{", simplode(parts, ","), "}"))$
 
 ax__build_layout_3d(opts) := block(
@@ -1356,20 +1375,41 @@ ax__build_layout_3d(opts) := block(
       if val # 'auto then
         parts: endcons(sconcat("\"height\":", string(val)), parts)
     )
+    else if key = paper_bgcolor then
+      parts: endcons(sconcat("\"paper_bgcolor\":", ax__json_string(val)), parts)
+    else if key = plot_bgcolor then
+      /* Plotly 3D uses scene.bgcolor as the plot-area background */
+      scene_parts: endcons(sconcat("\"bgcolor\":", ax__json_string(val)), scene_parts)
+    else if key = logx then (
+      if val then
+        xaxis_parts: endcons("\"type\":\"log\"", xaxis_parts)
+    )
+    else if key = logy then (
+      if val then
+        yaxis_parts: endcons("\"type\":\"log\"", yaxis_parts)
+    )
+    else if key = logz then (
+      if val then
+        zaxis_parts: endcons("\"type\":\"log\"", zaxis_parts)
+    )
   ),
   /* Default dimensions if not explicitly provided; auto skips the default */
   if not member(width, map(lhs, opts)) then
     parts: endcons("\"width\":700", parts),
   if not member(height, map(lhs, opts)) then
     parts: endcons("\"height\":450", parts),
-  if xaxis_parts # [] then
-    scene_parts: endcons(sconcat("\"xaxis\":{", simplode(xaxis_parts, ","), "}"), scene_parts),
-  if yaxis_parts # [] then
-    scene_parts: endcons(sconcat("\"yaxis\":{", simplode(yaxis_parts, ","), "}"), scene_parts),
-  if zaxis_parts # [] then
-    scene_parts: endcons(sconcat("\"zaxis\":{", simplode(zaxis_parts, ","), "}"), scene_parts),
-  if scene_parts # [] then
-    parts: endcons(sconcat("\"scene\":{", simplode(scene_parts, ","), "}"), parts),
+  if not member(paper_bgcolor, map(lhs, opts)) then
+    parts: endcons("\"paper_bgcolor\":\"white\"", parts),
+  if not member(plot_bgcolor, map(lhs, opts)) then
+    scene_parts: endcons("\"bgcolor\":\"white\"", scene_parts),
+  /* Axis line and grid colors for white background */
+  xaxis_parts: endcons("\"gridcolor\":\"#ddd\",\"linecolor\":\"#ddd\",\"linewidth\":1,\"zerolinecolor\":\"black\",\"zerolinewidth\":1", xaxis_parts),
+  yaxis_parts: endcons("\"gridcolor\":\"#ddd\",\"linecolor\":\"#ddd\",\"linewidth\":1,\"zerolinecolor\":\"black\",\"zerolinewidth\":1", yaxis_parts),
+  zaxis_parts: endcons("\"gridcolor\":\"#ddd\",\"linecolor\":\"#ddd\",\"linewidth\":1,\"zerolinecolor\":\"black\",\"zerolinewidth\":1", zaxis_parts),
+  scene_parts: endcons(sconcat("\"xaxis\":{", simplode(xaxis_parts, ","), "}"), scene_parts),
+  scene_parts: endcons(sconcat("\"yaxis\":{", simplode(yaxis_parts, ","), "}"), scene_parts),
+  scene_parts: endcons(sconcat("\"zaxis\":{", simplode(zaxis_parts, ","), "}"), scene_parts),
+  parts: endcons(sconcat("\"scene\":{", simplode(scene_parts, ","), "}"), parts),
   sconcat("{", simplode(parts, ","), "}"))$
 
 /* ========================================================================
@@ -1521,21 +1561,26 @@ ax__build_layout_polar(opts) := block(
       if val # 'auto then
         parts: endcons(sconcat("\"height\":", string(val)), parts)
     )
+    else if key = plot_bgcolor then
+      parts: endcons(sconcat("\"plot_bgcolor\":", ax__json_string(val)), parts)
+    else if key = paper_bgcolor then
+      parts: endcons(sconcat("\"paper_bgcolor\":", ax__json_string(val)), parts)
   ),
   /* Default dimensions if not explicitly provided; auto skips the default */
   if not member(width, map(lhs, opts)) then
     parts: endcons("\"width\":700", parts),
   if not member(height, map(lhs, opts)) then
     parts: endcons("\"height\":450", parts),
-  if radial_parts # [] then
-    polar_parts: endcons(sconcat("\"radialaxis\":{", simplode(radial_parts, ","), "}"), polar_parts),
-  if angular_parts # [] then
-    polar_parts: endcons(sconcat("\"angularaxis\":{", simplode(angular_parts, ","), "}"), polar_parts),
-  /* Always include polar key so Plotly knows it's a polar subplot */
-  if polar_parts = [] then
-    parts: endcons("\"polar\":{}", parts)
-  else
-    parts: endcons(sconcat("\"polar\":{", simplode(polar_parts, ","), "}"), parts),
+  if not member(plot_bgcolor, map(lhs, opts)) then
+    parts: endcons("\"plot_bgcolor\":\"white\"", parts),
+  if not member(paper_bgcolor, map(lhs, opts)) then
+    parts: endcons("\"paper_bgcolor\":\"white\"", parts),
+  /* Axis line and grid colors for polar axes */
+  radial_parts: endcons("\"gridcolor\":\"#ddd\",\"linecolor\":\"#ddd\",\"linewidth\":1", radial_parts),
+  angular_parts: endcons("\"gridcolor\":\"#ddd\",\"linecolor\":\"#ddd\",\"linewidth\":1", angular_parts),
+  polar_parts: endcons(sconcat("\"radialaxis\":{", simplode(radial_parts, ","), "}"), polar_parts),
+  polar_parts: endcons(sconcat("\"angularaxis\":{", simplode(angular_parts, ","), "}"), polar_parts),
+  parts: endcons(sconcat("\"polar\":{", simplode(polar_parts, ","), "}"), parts),
   sconcat("{", simplode(parts, ","), "}"))$
 
 /* ax_polar: plot r(θ) in polar coordinates.

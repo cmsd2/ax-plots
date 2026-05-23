@@ -46,5 +46,7 @@ ax_polar(θ/10, [θ, 0, 6*%pi], title="Archimedean Spiral")$
 | `showlegend` | Show legend (`true`/`false`) |
 | `width` | Fixed plot width in pixels |
 | `height` | Fixed plot height in pixels |
+| `plot_bgcolor` | Plot-area background color (default `"white"`) |
+| `paper_bgcolor` | Outer figure background color (default `"white"`) |
 
 See also: `ax_plot2d`, `ax_draw2d`
