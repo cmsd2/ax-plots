@@ -159,7 +159,7 @@ File: ax-plots.info,  Node: Layout Options,  Next: Supported Objects,  Prev: Sty
 ......................
 
 Option                Description
------------------------------------------------------------
+--------------------------------------------------------------------------
 ‘title’               Plot title
 ‘xlabel’ / ‘ylabel’   Axis labels
 ‘xrange’ / ‘yrange’   Axis ranges, e.g. ‘xrange=[-5,5]’
@@ -168,6 +168,9 @@ Option                Description
 ‘aspect_ratio’        Lock aspect ratio (‘true’/‘false’)
 ‘width’               Fixed plot width in pixels
 ‘height’              Fixed plot height in pixels
+‘logx’ / ‘logy’       Log-scale axes (‘true’/‘false’)
+‘plot_bgcolor’        Plot-area background color (default ‘"white"’)
+‘paper_bgcolor’       Outer figure background color (default ‘"white"’)
 
 See also: ‘ax_draw2d’, ‘ax_draw3d’, ‘ax_polar’, ‘plot2d’ ### Function:
 ax_draw2d ([args])
@@ -342,6 +345,11 @@ Option                      Description
 ‘height’                    Fixed plot height in pixels
 ‘bar_mode’                  Bar/histogram grouping: ‘"group"’,
                             ‘"stack"’, ‘"overlay"’
+‘logx’ / ‘logy’             Log-scale axes (‘true’/‘false’)
+‘plot_bgcolor’              Plot-area background color (default
+                            ‘"white"’)
+‘paper_bgcolor’             Outer figure background color (default
+                            ‘"white"’)
 
 See also: ‘ax_plot2d’, ‘ax_draw3d’, ‘ax_polar’, ‘draw2d’ ### Function:
 ax_polar (expr, [var, min, max])
@@ -391,12 +399,14 @@ Option              Default                Description
 1.2.1.9 Layout Options
 ......................
 
-Option         Description
-----------------------------------------------
-‘title’        Plot title
-‘showlegend’   Show legend (‘true’/‘false’)
-‘width’        Fixed plot width in pixels
-‘height’       Fixed plot height in pixels
+Option            Description
+----------------------------------------------------------------------
+‘title’           Plot title
+‘showlegend’      Show legend (‘true’/‘false’)
+‘width’           Fixed plot width in pixels
+‘height’          Fixed plot height in pixels
+‘plot_bgcolor’    Plot-area background color (default ‘"white"’)
+‘paper_bgcolor’   Outer figure background color (default ‘"white"’)
 
 See also: ‘ax_plot2d’, ‘ax_draw2d’
 
@@ -486,14 +496,21 @@ Option            Default      Description
 1.3.1.3 Layout Options
 ......................
 
-Option                           Description
----------------------------------------------------------------
-‘title’                          Plot title
-‘xlabel’ / ‘ylabel’ / ‘zlabel’   Axis labels
-‘xrange’ / ‘yrange’ / ‘zrange’   Axis ranges
-‘showlegend’                     Show legend
-‘width’                          Fixed plot width in pixels
-‘height’                         Fixed plot height in pixels
+Option                      Description
+--------------------------------------------------------------------------
+‘title’                     Plot title
+‘xlabel’ / ‘ylabel’ /       Axis labels
+‘zlabel’
+‘xrange’ / ‘yrange’ /       Axis ranges
+‘zrange’
+‘showlegend’                Show legend
+‘width’                     Fixed plot width in pixels
+‘height’                    Fixed plot height in pixels
+‘logx’ / ‘logy’ / ‘logz’    Log-scale axes (‘true’/‘false’)
+‘plot_bgcolor’              Scene background color (default ‘"white"’;
+                            maps to ‘scene.bgcolor’)
+‘paper_bgcolor’             Outer figure background color (default
+                            ‘"white"’)
 
 See also: ‘ax_plot2d’, ‘ax_draw2d’, ‘ax_polar’, ‘draw3d’
 
@@ -865,47 +882,47 @@ Node: Style Options3430
 Ref: #style-options3558
 Node: Layout Options4368
 Ref: #layout-options4524
-Node: Supported Objects5353
-Ref: #supported-objects5502
-Ref: #examples-17294
-Ref: #style-options-18688
-Ref: #layout-options-111363
-Ref: #examples-212523
-Ref: #style-options-212890
-Ref: #layout-options-213590
-Node: 3D Plotting13888
-Ref: #d-plotting-114034
-Node: Function ax_draw3d [args]14074
-Ref: #function-ax_draw3d-args14182
-Node: Supported Draw Objects14404
-Ref: #supported-draw-objects14535
-Ref: #examples-315134
-Ref: #style-options-315778
-Ref: #layout-options-316371
-Node: Statistical Charts16895
-Ref: #statistical-charts17055
-Node: Function ax_bar categories values17103
-Ref: #function-ax_bar-categories-values17235
-Ref: #examples-417828
-Node: Relevant Options18468
-Ref: #relevant-options18583
-Ref: #layout-options-418912
-Ref: #examples-519455
-Ref: #relevant-options-120019
-Ref: #layout-options-520300
-Ref: #examples-621076
-Ref: #relevant-options-221493
-Node: Field Plots22144
-Ref: #field-plots22270
-Node: Function ax_contour expr xvar xlo xhi yvar ylo yhi22335
-Ref: #function-ax_contour-expr-xvar-xlo-xhi-yvar-ylo-yhi22499
-Ref: #examples-722940
-Ref: #relevant-options-323346
-Ref: #examples-824321
-Ref: #relevant-options-424901
-Ref: #examples-925900
-Ref: #relevant-options-526236
-Node: Function and variable index26755
+Node: Supported Objects5595
+Ref: #supported-objects5744
+Ref: #examples-17536
+Ref: #style-options-18930
+Ref: #layout-options-111605
+Ref: #examples-213066
+Ref: #style-options-213433
+Ref: #layout-options-214133
+Node: 3D Plotting14619
+Ref: #d-plotting-114765
+Node: Function ax_draw3d [args]14805
+Ref: #function-ax_draw3d-args14913
+Node: Supported Draw Objects15135
+Ref: #supported-draw-objects15266
+Ref: #examples-315865
+Ref: #style-options-316509
+Ref: #layout-options-317102
+Node: Statistical Charts17950
+Ref: #statistical-charts18110
+Node: Function ax_bar categories values18158
+Ref: #function-ax_bar-categories-values18290
+Ref: #examples-418883
+Node: Relevant Options19523
+Ref: #relevant-options19638
+Ref: #layout-options-419967
+Ref: #examples-520510
+Ref: #relevant-options-121074
+Ref: #layout-options-521355
+Ref: #examples-622131
+Ref: #relevant-options-222548
+Node: Field Plots23199
+Ref: #field-plots23325
+Node: Function ax_contour expr xvar xlo xhi yvar ylo yhi23390
+Ref: #function-ax_contour-expr-xvar-xlo-xhi-yvar-ylo-yhi23554
+Ref: #examples-723995
+Ref: #relevant-options-324401
+Ref: #examples-825376
+Ref: #relevant-options-425956
+Ref: #examples-926955
+Ref: #relevant-options-527291
+Node: Function and variable index27810
 
 End Tag Table
 
