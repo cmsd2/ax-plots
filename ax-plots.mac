@@ -1498,9 +1498,8 @@ ax__build_frame_json(name, trace_jsons, indices) :=
 
 /* True if a spec [inner, style, _, _] is eligible for the fast
    path: inner is an explicit(...) wrapper with numeric x-range,
-   and compile_grid is available (numerics loaded).  The fboundp
-   check uses Maxima's Lisp escape — Maxima's own `fboundp' is a
-   noun form that doesn't actually evaluate. */
+   and compile_grid is available (numerics loaded).  Uses Maxima's
+   Lisp escape — Maxima's own `fboundp' is just a noun form. */
 ax__can_fast_sample_2d(spec) := block(
   [inner: spec[1], a, var, lo, hi],
   if not (not atom(inner) and op(inner) = 'explicit) then return(false),
@@ -1509,7 +1508,7 @@ ax__can_fast_sample_2d(spec) := block(
   var: a[2], lo: a[3], hi: a[4],
   if not symbolp(var) then return(false),
   if not numberp(float(lo)) or not numberp(float(hi)) then return(false),
-  not (?fboundp('?\$compile\_grid) = false))$
+  not (?fboundp(compile_grid) = false))$
 
 /* Bulk-sample all frames of an explicit(...) spec via compile_grid.
    Returns [rows, xs_json] where rows[i+1] is the list of y-values
