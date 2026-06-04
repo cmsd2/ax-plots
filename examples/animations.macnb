@@ -1,0 +1,235 @@
+{
+ "nbformat": 4,
+ "nbformat_minor": 5,
+ "metadata": {
+  "kernelspec": {
+   "display_name": "Maxima",
+   "language": "maxima",
+   "name": "maxima"
+  }
+ },
+ "cells": [
+  {
+   "cell_type": "markdown",
+   "source": [
+    "# Animated plots with `animate(...)`\n",
+    "\n",
+    "`animate` is a draw-object wrapper.  Pass it any object that\n",
+    "`ax_draw2d` or `ax_draw3d` already understands, plus an iteration\n",
+    "spec `[param, lo, hi]` (or `[param, lo, hi, n]`), and the figure\n",
+    "renders with a slider and a play / pause control.\n",
+    "\n",
+    "```\n",
+    "animate(obj, [param, lo, hi])\n",
+    "animate(obj, [param, lo, hi, n])    /* n defaults to 60 frames */\n",
+    "```\n",
+    "\n",
+    "Each frame is precomputed in Maxima by substituting `param` and\n",
+    "rebuilding the trace; Plotly handles playback, scrubbing, and\n",
+    "tween interpolation between frames in the browser."
+   ],
+   "metadata": {}
+  },
+  {
+   "cell_type": "code",
+   "source": [
+    "load(\"ax-plots\")$"
+   ],
+   "metadata": {},
+   "execution_count": null,
+   "outputs": []
+  },
+  {
+   "cell_type": "markdown",
+   "source": [
+    "## Frequency sweep\n",
+    "\n",
+    "Plain `sin(k·x)` over `k ∈ [0.1, 5]`, defaults everywhere.\n",
+    "Drag the slider, or press the ▶ button."
+   ],
+   "metadata": {}
+  },
+  {
+   "cell_type": "code",
+   "source": [
+    "ax_draw2d(animate(explicit(sin(k*x), x, -%pi, %pi), [k, 0.1, 5]))$"
+   ],
+   "metadata": {},
+   "execution_count": null,
+   "outputs": []
+  },
+  {
+   "cell_type": "markdown",
+   "source": [
+    "## Static + animated together\n",
+    "\n",
+    "Static traces render once and stay visible across every frame.\n",
+    "Here a red `cos(x)` reference curve sits behind a blue\n",
+    "`sin(k·x)` that sweeps.  Style options (`color`, `line_width`,\n",
+    "…) preceding the `animate` wrapper apply to every frame of it."
+   ],
+   "metadata": {}
+  },
+  {
+   "cell_type": "code",
+   "source": [
+    "ax_draw2d(\n",
+    "  color=red,  line_width=1.5,\n",
+    "  explicit(cos(x), x, -%pi, %pi),\n",
+    "  color=blue, line_width=3,\n",
+    "  animate(explicit(sin(k*x), x, -%pi, %pi), [k, 0.5, 3, 60]),\n",
+    "  title=\"static cos vs. swept sin(k·x)\",\n",
+    "  yrange=[-1.2, 1.2]\n",
+    ")$"
+   ],
+   "metadata": {},
+   "execution_count": null,
+   "outputs": []
+  },
+  {
+   "cell_type": "markdown",
+   "source": [
+    "## Playback options\n",
+    "\n",
+    "Layout-level options control the playback UI:\n",
+    "\n",
+    "| Option                 | Default        | Effect                              |\n",
+    "|------------------------|----------------|-------------------------------------|\n",
+    "| `fps`                  | 12             | Frame rate when the play button is pressed |\n",
+    "| `transition_duration`  | matches `fps`  | Tween length in ms; 0 = hard step   |\n",
+    "| `slider_label`         | name of `param` | Prefix shown next to the slider value |\n",
+    "\n",
+    "These are siblings of `title` / `xrange` / etc., not options of\n",
+    "`animate` itself — they apply to the whole figure."
+   ],
+   "metadata": {}
+  },
+  {
+   "cell_type": "code",
+   "source": [
+    "ax_draw2d(\n",
+    "  animate(explicit(sin(x - phi), x, 0, 4*%pi),\n",
+    "          [phi, 0, 2*%pi, 40]),\n",
+    "  fps=24,\n",
+    "  slider_label=\"phase\",\n",
+    "  title=\"travelling wave\",\n",
+    "  yrange=[-1.2, 1.2]\n",
+    ")$"
+   ],
+   "metadata": {},
+   "execution_count": null,
+   "outputs": []
+  },
+  {
+   "cell_type": "markdown",
+   "source": [
+    "## Damped harmonic oscillator\n",
+    "\n",
+    "A small physics example: sweep the damping coefficient `d` of\n",
+    "`exp(-d·x)·cos(2π·x)` and watch the envelope tighten.  The\n",
+    "expression's free `x` is the plotted axis; the swept `d` parameter\n",
+    "is bound by `animate`."
+   ],
+   "metadata": {}
+  },
+  {
+   "cell_type": "code",
+   "source": [
+    "ax_draw2d(\n",
+    "  color=teal, line_width=2,\n",
+    "  animate(explicit(exp(-d*x)*cos(2*%pi*x), x, 0, 6),\n",
+    "          [d, 0.05, 1.5, 50]),\n",
+    "  slider_label=\"damping\",\n",
+    "  title=\"damped oscillator: cos(2π·x)·exp(-d·x)\",\n",
+    "  xlabel=\"x\", ylabel=\"y\",\n",
+    "  yrange=[-1.1, 1.1]\n",
+    ")$"
+   ],
+   "metadata": {},
+   "execution_count": null,
+   "outputs": []
+  },
+  {
+   "cell_type": "markdown",
+   "source": [
+    "## Parametric: Lissajous ratio sweep\n",
+    "\n",
+    "`parametric` works inside `animate` just like any other draw\n",
+    "object.  Here we sweep the y-frequency of a Lissajous figure.\n",
+    "Plotly tweens point-wise between frames, so the curve morphs\n",
+    "smoothly."
+   ],
+   "metadata": {}
+  },
+  {
+   "cell_type": "code",
+   "source": [
+    "ax_draw2d(\n",
+    "  color=purple, line_width=2,\n",
+    "  animate(parametric(cos(3*t), sin(b*t), [t, 0, 2*%pi]),\n",
+    "          [b, 1, 5, 40]),\n",
+    "  slider_label=\"y-freq\",\n",
+    "  title=\"Lissajous: x = cos(3t), y = sin(b·t)\",\n",
+    "  aspect_ratio=true,\n",
+    "  xrange=[-1.2, 1.2], yrange=[-1.2, 1.2]\n",
+    ")$"
+   ],
+   "metadata": {},
+   "execution_count": null,
+   "outputs": []
+  },
+  {
+   "cell_type": "markdown",
+   "source": [
+    "## 3D animated surface\n",
+    "\n",
+    "Animation in 3D works the same way: pass the wrapper to\n",
+    "`ax_draw3d` instead of `ax_draw2d`.  Note that 3D surfaces with\n",
+    "very fine grids are more expensive to redraw per frame; this\n",
+    "example uses a moderate grid (default 30×30) and 25 frames."
+   ],
+   "metadata": {}
+  },
+  {
+   "cell_type": "code",
+   "source": [
+    "ax_draw3d(\n",
+    "  animate(explicit(sin(k*x)*cos(y),\n",
+    "                   x, -%pi, %pi, y, -%pi, %pi),\n",
+    "          [k, 0.5, 3, 25]),\n",
+    "  fps=10,\n",
+    "  title=\"sin(k·x)·cos(y) over a sweep of k\"\n",
+    ")$"
+   ],
+   "metadata": {},
+   "execution_count": null,
+   "outputs": []
+  },
+  {
+   "cell_type": "markdown",
+   "source": [
+    "## What can and cannot be animated (v0.1)\n",
+    "\n",
+    "**Supported.**  Every draw-object that `ax_draw2d` / `ax_draw3d`\n",
+    "knows: `explicit`, `parametric`, `points`, `lines`, `implicit`,\n",
+    "`ax_contour`, `ax_heatmap`, `ax_bar`, `ax_histogram`,\n",
+    "`ax_vector_field`, `parametric_surface`, `ax_contour3d`, …\n",
+    "\n",
+    "**Not yet supported in this version.**\n",
+    "- More than one independent animated parameter (one slider per\n",
+    "  figure — `[k, …]` and `[j, …]` in the same call is an error).\n",
+    "- Animating layout (titles, axis ranges, colour scales).\n",
+    "- Animating styles (`color`, `line_width`, `opacity`) frame-by-frame.\n",
+    "- Pre-sampled frame data (no expression, just nested lists).\n",
+    "- Cross-cell widgets: a slider in one cell can't drive a plot in\n",
+    "  another (that's the [widgets layer](../doc/design/reactive-views.md),\n",
+    "  not the animation layer).\n",
+    "\n",
+    "See [`doc/design/animate.md`](../doc/design/animate.md) for the\n",
+    "full design rationale, and [`reactive-views.md`](../doc/design/reactive-views.md)\n",
+    "for the larger architecture this `animate(...)` fits inside."
+   ],
+   "metadata": {}
+  }
+ ]
+}
