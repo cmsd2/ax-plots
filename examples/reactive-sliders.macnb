@@ -202,10 +202,37 @@
   {
    "cell_type": "markdown",
    "source": [
+    "## 3D plots react the same way\n",
+    "\n",
+    "`ax_draw3d` uses the same registry, the same `_reactive` block,\n",
+    "and the same replot dispatcher.  Sliders below the figure drive\n",
+    "the surface as you drag."
+   ],
+   "metadata": {}
+  },
+  {
+   "cell_type": "code",
+   "source": [
+    "reactive_reset()$\n",
+    "ax_draw3d(\n",
+    "  explicit(\n",
+    "    sin(widget_slider(\"kx\", 0.2, 3) * x) *\n",
+    "      cos(widget_slider(\"ky\", 0.2, 3) * y),\n",
+    "    x, -%pi, %pi, y, -%pi, %pi),\n",
+    "  title=\"sin(kx · x) · cos(ky · y)\"\n",
+    ")$"
+   ],
+   "metadata": {},
+   "execution_count": null,
+   "outputs": []
+  },
+  {
+   "cell_type": "markdown",
+   "source": [
     "## What v0.1 does and does not do\n",
     "\n",
     "**Works today.**\n",
-    "- One or more sliders per 2D figure, any number of signals per\n",
+    "- One or more sliders per 2D or 3D figure, any number of signals per\n",
     "  expression, signals inside `diff` / `integrate` / arbitrary algebra.\n",
     "- Live re-render in the Aximar desktop app (this renderer); the\n",
     "  kernel re-evaluates the original draw call and ships back fresh\n",
@@ -214,8 +241,6 @@
     "  view, with the most recent slider value queued.\n",
     "\n",
     "**Not yet.**\n",
-    "- 3D reactive plots (`ax_draw3d` registers but `ax__replot_3d` is\n",
-    "  a TODO — same pattern, just not wired through).\n",
     "- Widget types beyond `widget_slider` — button, dropdown,\n",
     "  click-on-plot, drag-a-point are on the roadmap on the same\n",
     "  scaffolding.\n",

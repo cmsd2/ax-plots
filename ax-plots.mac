@@ -1935,10 +1935,31 @@ ax__replot_2d(view_id) := block([entry],
           entry[2], ", not 2d"),
   ax__draw2d_impl(entry[1], view_id))$
 
-ax_draw3d([ax__args]) := block(
-  [traces, layout_opts, style,
+ax_draw3d([ax__args]) := ax__draw3d_impl(ax__args, false)$
+
+/* The shared body of ax_draw3d, also called by ax__replot_3d for the
+   reactive re-render path.  Mirrors ax__draw2d_impl: a false reuse id
+   allocates a fresh registry entry; an explicit id keeps the original. */
+ax__draw3d_impl(ax__args_in, reuse_view_id) := block(
+  [ax__args, signal_names, has_signals, view_id, reactive_json,
+   traces, layout_opts, style,
    animate_specs, anim_param, anim_lo, anim_hi, anim_n, has_anim,
    param_values, frames_jsons, layout_json, slider_json, updatemenus_json],
+  /* === Reactive: detect signals BEFORE resolving, then resolve so
+     the sampler never sees signal noun forms. === */
+  signal_names: ax__collect_signals_in_args(ax__args_in),
+  has_signals:  signal_names # [],
+  if has_signals then (
+    view_id: if reuse_view_id = false
+               then ax__register_view(ax__args_in, "3d")
+               else reuse_view_id,
+    reactive_json: ax__build_reactive_json(view_id, signal_names),
+    ax__args: ax__resolve_signals_in_args(ax__args_in)
+  ) else (
+    view_id: false,
+    reactive_json: false,
+    ax__args: ax__args_in
+  ),
   traces: [],
   layout_opts: [],
   style: ax__default_style(),
@@ -1952,6 +1973,9 @@ ax_draw3d([ax__args]) := block(
       style: ax__apply_option(style, item)
     else if ax__is_animate(item) then
       block([spec, inner, p_lo, raw0, traces0, start_idx, count],
+        if has_signals then
+          error("ax_draw3d: animate(...) and signal(...) in the same call",
+                " is not supported in v0"),
         spec: ax__animate_spec(item),
         if not has_anim then (
           anim_param: spec[2],
@@ -1984,18 +2008,39 @@ ax_draw3d([ax__args]) := block(
     else error("ax_draw3d: unrecognized argument:", item)
   ),
   layout_json: ax__build_layout_3d(layout_opts),
-  if not has_anim then
-    ax__emit_plotly(traces, layout_json)
-  else (
+  if has_anim then (
     param_values:     ax__animate_param_values(anim_lo, anim_hi, anim_n),
     frames_jsons:     ax__build_frames_3d(animate_specs, anim_param, param_values),
     slider_json:      ax__build_slider_json(param_values, anim_param, layout_opts),
     updatemenus_json: ax__build_updatemenus_json(layout_opts),
     layout_json:      ax__layout_add_animation(layout_json, slider_json, updatemenus_json),
     ax__emit_plotly_animated(traces, layout_json, frames_jsons)
-  ),
+  ) else
+    ax__emit_plotly_with_meta(traces, layout_json, reactive_json),
   'done
 )$
+
+/* Re-render the figure for VIEW_ID (3d) with whatever the current
+   signal values are.  Errors if VIEW_ID isn't known or is 2d. */
+ax__replot_3d(view_id) := block([entry],
+  entry: ax__lookup_view(view_id),
+  if entry = false then
+    error("ax__replot_3d: unknown view id: ", view_id),
+  if entry[2] # "3d" then
+    error("ax__replot_3d: view ", view_id, " was registered for ",
+          entry[2], ", not 3d"),
+  ax__draw3d_impl(entry[1], view_id))$
+
+/* Dispatch to the right replot based on the view's registered kind.
+   This is the single entry point the renderer should call; it keeps
+   the host language from needing to know about 2d vs 3d view ids. */
+ax__replot(view_id) := block([entry],
+  entry: ax__lookup_view(view_id),
+  if entry = false then
+    error("ax__replot: unknown view id: ", view_id),
+  if entry[2] = "2d" then ax__draw2d_impl(entry[1], view_id)
+  else if entry[2] = "3d" then ax__draw3d_impl(entry[1], view_id)
+  else error("ax__replot: unknown view kind: ", entry[2]))$
 
 /* Test whether an argument is a range [var, lo, hi]: a list of 3 with a
    non-numeric symbol as first element */

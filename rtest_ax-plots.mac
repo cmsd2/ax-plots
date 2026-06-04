@@ -114,5 +114,49 @@ errcatch(ax__replot_2d("not_a_real_view"));
                             [j, 0, 1, 5]))));
 [];
 
+/* --- 3D reactive parity ------------------------------------------------- */
+
+/* a 3D plot with a signal registers a view tagged "3d" */
+(reactive_reset(), ax__clear_views(),
+ widget_slider("r3k", 0.1, 3),
+ ax_draw3d(explicit(sin('signal("r3k") * x) * cos(y),
+                    x, -%pi, %pi, y, -%pi, %pi)),
+ third(first(ax__view_registry)));
+"3d";
+
+/* ax__replot_3d on a 2d-registered view errors */
+(reactive_reset(), ax__clear_views(),
+ widget_slider("r2k", 0.1, 5),
+ ax_draw2d(explicit(sin('signal("r2k") * x), x, -%pi, %pi)),
+ errcatch(ax__replot_3d(first(first(ax__view_registry)))));
+[];
+
+/* ax__replot_2d on a 3d-registered view errors */
+(reactive_reset(), ax__clear_views(),
+ widget_slider("r3b", 0.1, 3),
+ ax_draw3d(explicit(sin('signal("r3b") * x) * cos(y),
+                    x, -%pi, %pi, y, -%pi, %pi)),
+ errcatch(ax__replot_2d(first(first(ax__view_registry)))));
+[];
+
+/* ax__replot dispatches by kind: 2d view → returns 'done */
+(reactive_reset(), ax__clear_views(),
+ widget_slider("rd2", 0.1, 5),
+ ax_draw2d(explicit(sin('signal("rd2") * x), x, -%pi, %pi)),
+ ax__replot(first(first(ax__view_registry))));
+'done;
+
+/* ax__replot dispatches by kind: 3d view → returns 'done */
+(reactive_reset(), ax__clear_views(),
+ widget_slider("rd3", 0.1, 3),
+ ax_draw3d(explicit(sin('signal("rd3") * x) * cos(y),
+                    x, -%pi, %pi, y, -%pi, %pi)),
+ ax__replot(first(first(ax__view_registry))));
+'done;
+
+/* ax__replot on an unknown id errors */
+errcatch(ax__replot("not_a_real_view"));
+[];
+
 (ax__clear_views(), reactive_reset(), true);
 true;
