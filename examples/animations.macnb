@@ -166,7 +166,7 @@
    "source": [
     "ax_draw2d(\n",
     "  color=purple, line_width=2,\n",
-    "  animate(parametric(cos(3*t), sin(b*t), [t, 0, 2*%pi]),\n",
+    "  animate(parametric(cos(3*t), sin(b*t), t, 0, 2*%pi),\n",
     "          [b, 1, 5, 40]),\n",
     "  slider_label=\"y-freq\",\n",
     "  title=\"Lissajous: x = cos(3t), y = sin(b·t)\",\n",
