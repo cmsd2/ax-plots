@@ -158,5 +158,31 @@ errcatch(ax__replot_2d("not_a_real_view"));
 errcatch(ax__replot("not_a_real_view"));
 [];
 
+/* --- value-bound widget metadata in _reactive ---------------------------- */
+
+/* dropdown carries a "choices" field; other kinds do not.  ssearch
+   returns the 1-based match index or false; here we just check truthy
+   vs false. */
+(reactive_reset(), ax__clear_views(),
+ widget_dropdown("rdrop", [1, 2, 5]),
+ numberp(ssearch("\"choices\":[1.0,2.0,5.0]",
+                 ax__build_reactive_json("v_x", ["rdrop"]))));
+true;
+
+/* checkbox carries kind=checkbox and no choices field */
+(reactive_reset(), ax__clear_views(),
+ widget_checkbox("rcb", true),
+ block([j: ax__build_reactive_json("v_y", ["rcb"])],
+   [numberp(ssearch("\"kind\":\"checkbox\"", j)),
+    ssearch("\"choices\"", j)]));
+[true, false];
+
+/* number carries kind=number */
+(reactive_reset(), ax__clear_views(),
+ widget_number("rnum", 0, 10, 3),
+ numberp(ssearch("\"kind\":\"number\"",
+                 ax__build_reactive_json("v_z", ["rnum"]))));
+true;
+
 (ax__clear_views(), reactive_reset(), true);
 true;
