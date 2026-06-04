@@ -20,3 +20,55 @@ ax__json_string("hello");
 /* style defaults are a list */
 listp(ax__default_style());
 true;
+
+/* --- animate() wrapper -------------------------------------------------- */
+
+/* detection */
+ax__is_animate(animate(explicit(sin(k*x), x, -%pi, %pi), [k, 0, 1]));
+true;
+
+ax__is_animate(explicit(sin(x), x, -1, 1));
+false;
+
+/* spec unpacking */
+ax__animate_spec(animate(explicit(sin(k*x), x, -%pi, %pi), [k, 0, 1, 5]))[2];
+k;
+
+ax__animate_spec(animate(explicit(sin(k*x), x, -%pi, %pi), [k, 0, 1, 5]))[5];
+5;
+
+/* default n = 60 when omitted */
+ax__animate_spec(animate(explicit(sin(k*x), x, -%pi, %pi), [k, 0, 1]))[5];
+60;
+
+/* param value sweep */
+ax__animate_param_values(0, 1, 5);
+[0.0, 0.25, 0.5, 0.75, 1.0];
+
+/* layout option lookup */
+ax__layout_opt_value([fps=24, slider_label="freq"], fps, 12);
+24;
+
+ax__layout_opt_value([], fps, 12);
+12;
+
+/* errors: missing spec elements */
+errcatch(ax__animate_spec(animate(explicit(sin(x), x, -1, 1), [k, 0])));
+[];
+
+/* errors: non-symbol param */
+errcatch(ax__animate_spec(animate(explicit(sin(x), x, -1, 1), [2, 0, 1])));
+[];
+
+/* errors: n < 2 */
+errcatch(ax__animate_spec(animate(explicit(sin(k*x), x, -1, 1), [k, 0, 1, 1])));
+[];
+
+/* an animated ax_draw2d call returns 'done */
+ax_draw2d(animate(explicit(sin(k*x), x, -%pi, %pi), [k, 0.1, 2, 3]));
+done;
+
+/* an animated ax_draw3d call returns 'done */
+ax_draw3d(animate(explicit(sin(k*x)*cos(y), x, -%pi, %pi, y, -%pi, %pi),
+                  [k, 0.5, 1.5, 3]));
+done;
