@@ -1,0 +1,235 @@
+{
+ "nbformat": 4,
+ "nbformat_minor": 5,
+ "metadata": {
+  "kernelspec": {
+   "display_name": "Maxima",
+   "language": "maxima",
+   "name": "maxima"
+  }
+ },
+ "cells": [
+  {
+   "cell_type": "markdown",
+   "source": [
+    "# Reactive plots with `widget_slider`\n",
+    "\n",
+    "The `reactive` package gives you *signals* — named, bounded, mutable\n",
+    "numeric values that survive symbolic processing.  When a signal\n",
+    "appears in an expression handed to `ax_draw2d` / `ax_draw3d`,\n",
+    "ax-plots emits the figure with an attached slider; dragging the\n",
+    "slider tells the kernel to update the signal and re-render the\n",
+    "plot in place.\n",
+    "\n",
+    "This is paradigm-1 of [reactive-views](../doc/design/reactive-views.md):\n",
+    "the renderer talks back to the kernel through a real channel, and\n",
+    "every plot is just an expression that *contains* the signal — no\n",
+    "special wrapper, no precomputed frames."
+   ],
+   "metadata": {}
+  },
+  {
+   "cell_type": "code",
+   "source": [
+    "load(\"ax-plots\")$\n",
+    "load(\"reactive\")$"
+   ],
+   "metadata": {},
+   "execution_count": null,
+   "outputs": []
+  },
+  {
+   "cell_type": "markdown",
+   "source": [
+    "## How a signal behaves\n",
+    "\n",
+    "`widget_slider(name, lo, hi)` registers a slider-flavoured signal\n",
+    "and returns its noun form.  The noun form is a first-class value:\n",
+    "it can sit inside any expression and survive `diff`, `integrate`,\n",
+    "`subst`, simplification — all of it."
+   ],
+   "metadata": {}
+  },
+  {
+   "cell_type": "code",
+   "source": [
+    "k : widget_slider(\"k\", 0.1, 5)$\n",
+    "expr : sin(k*x);"
+   ],
+   "metadata": {},
+   "execution_count": null,
+   "outputs": []
+  },
+  {
+   "cell_type": "code",
+   "source": [
+    "diff(expr, x);"
+   ],
+   "metadata": {},
+   "execution_count": null,
+   "outputs": []
+  },
+  {
+   "cell_type": "markdown",
+   "source": [
+    "`resolve_signals` substitutes every signal in an expression with\n",
+    "its current numeric value.  ax-plots' sampler does this for you\n",
+    "behind the scenes; you rarely need to call it directly."
+   ],
+   "metadata": {}
+  },
+  {
+   "cell_type": "code",
+   "source": [
+    "signal_set(\"k\", 2.5)$\n",
+    "resolve_signals(expr);"
+   ],
+   "metadata": {},
+   "execution_count": null,
+   "outputs": []
+  },
+  {
+   "cell_type": "markdown",
+   "source": [
+    "## One signal, one slider\n",
+    "\n",
+    "The simplest reactive plot.  Run the cell, then drag the slider\n",
+    "below the figure — the curve redraws every time the kernel finishes\n",
+    "the round trip."
+   ],
+   "metadata": {}
+  },
+  {
+   "cell_type": "code",
+   "source": [
+    "reactive_reset()$\n",
+    "ax_draw2d(\n",
+    "  color=blue, line_width=2,\n",
+    "  explicit(sin(widget_slider(\"freq\", 0.1, 5) * x), x, -%pi, %pi),\n",
+    "  title=\"sin(freq · x)\",\n",
+    "  yrange=[-1.2, 1.2]\n",
+    ")$"
+   ],
+   "metadata": {},
+   "execution_count": null,
+   "outputs": []
+  },
+  {
+   "cell_type": "markdown",
+   "source": [
+    "## Two signals on the same plot\n",
+    "\n",
+    "Every signal mentioned anywhere in the expression tree gets its\n",
+    "own slider.  Both update independently; the kernel coalesces drag\n",
+    "events so you can scrub freely without queueing up stale renders."
+   ],
+   "metadata": {}
+  },
+  {
+   "cell_type": "code",
+   "source": [
+    "reactive_reset()$\n",
+    "ax_draw2d(\n",
+    "  color=red, line_width=2,\n",
+    "  explicit(\n",
+    "    widget_slider(\"amp\", 0.1, 2) *\n",
+    "      sin(widget_slider(\"freq\", 0.1, 5) * x),\n",
+    "    x, -%pi, %pi),\n",
+    "  title=\"amp · sin(freq · x)\",\n",
+    "  yrange=[-2.1, 2.1]\n",
+    ")$"
+   ],
+   "metadata": {},
+   "execution_count": null,
+   "outputs": []
+  },
+  {
+   "cell_type": "markdown",
+   "source": [
+    "## Signals are values, not call sites\n",
+    "\n",
+    "The same signal can be referenced multiple times — it's the same\n",
+    "underlying value, identified by name.  Bind it to a Maxima variable\n",
+    "once and reuse freely."
+   ],
+   "metadata": {}
+  },
+  {
+   "cell_type": "code",
+   "source": [
+    "reactive_reset()$\n",
+    "d : widget_slider(\"damping\", 0.05, 1.5)$\n",
+    "w : widget_slider(\"omega\", 1, 8)$\n",
+    "ax_draw2d(\n",
+    "  color=teal, line_width=2,\n",
+    "  explicit(exp(-d*x) * cos(w*x), x, 0, 6),\n",
+    "  title=\"damped oscillator: exp(-d·x)·cos(ω·x)\",\n",
+    "  yrange=[-1.1, 1.1]\n",
+    ")$"
+   ],
+   "metadata": {},
+   "execution_count": null,
+   "outputs": []
+  },
+  {
+   "cell_type": "markdown",
+   "source": [
+    "## Signals inside derived expressions\n",
+    "\n",
+    "Because signals survive symbolic processing, you can plot derived\n",
+    "expressions and still get sliders for the original parameters.\n",
+    "Here `diff` is taken at notebook-evaluation time; the slider then\n",
+    "drives the resulting symbolic derivative."
+   ],
+   "metadata": {}
+  },
+  {
+   "cell_type": "code",
+   "source": [
+    "reactive_reset()$\n",
+    "f : sin(widget_slider(\"k\", 0.5, 4) * x)$\n",
+    "ax_draw2d(\n",
+    "  color=blue,    line_width=2, explicit(f,           x, -%pi, %pi),\n",
+    "  color=orange,  line_width=2, explicit(diff(f, x),  x, -%pi, %pi),\n",
+    "  title=\"f(x) and f'(x) — drag k to sweep both\",\n",
+    "  yrange=[-5, 5]\n",
+    ")$"
+   ],
+   "metadata": {},
+   "execution_count": null,
+   "outputs": []
+  },
+  {
+   "cell_type": "markdown",
+   "source": [
+    "## What v0.1 does and does not do\n",
+    "\n",
+    "**Works today.**\n",
+    "- One or more sliders per 2D figure, any number of signals per\n",
+    "  expression, signals inside `diff` / `integrate` / arbitrary algebra.\n",
+    "- Live re-render in the Aximar desktop app (this renderer); the\n",
+    "  kernel re-evaluates the original draw call and ships back fresh\n",
+    "  Plotly JSON, which the renderer swaps in place.\n",
+    "- Coalesced drag events: at most one round trip in flight per\n",
+    "  view, with the most recent slider value queued.\n",
+    "\n",
+    "**Not yet.**\n",
+    "- 3D reactive plots (`ax_draw3d` registers but `ax__replot_3d` is\n",
+    "  a TODO — same pattern, just not wired through).\n",
+    "- Widget types beyond `widget_slider` — button, dropdown,\n",
+    "  click-on-plot, drag-a-point are on the roadmap on the same\n",
+    "  scaffolding.\n",
+    "- Cross-cell widget identity: re-running a cell that registers\n",
+    "  `widget_slider(\"k\", …)` overwrites the entry, but in-flight\n",
+    "  drags on other views referencing `k` are not migrated.\n",
+    "- Reactive figures in the VS Code renderer — that path needs a\n",
+    "  kernel↔renderer channel; only Aximar has one today.\n",
+    "\n",
+    "See [`doc/design/reactive-views.md`](../doc/design/reactive-views.md)\n",
+    "for the full architecture and [`reactive/README.md`](../../reactive/README.md)\n",
+    "for the signal API surface."
+   ],
+   "metadata": {}
+  }
+ ]
+}
