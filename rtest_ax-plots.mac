@@ -72,3 +72,47 @@ done;
 ax_draw3d(animate(explicit(sin(k*x)*cos(y), x, -%pi, %pi, y, -%pi, %pi),
                   [k, 0.5, 1.5, 3]));
 done;
+
+/* --- reactive path: _reactive metadata + view registry ------------------ */
+
+(load("reactive"), true);
+true;
+
+/* before any signal-bearing draw, ax__reactive_loaded_p reports the
+   reactive package is available */
+ax__reactive_loaded_p();
+true;
+
+/* a plot with a signal returns 'done and registers a view */
+(reactive_reset(), ax__clear_views(),
+ widget_slider("rfreq", 0.1, 5),
+ ax_draw2d(explicit(sin('signal("rfreq") * x), x, -%pi, %pi)),
+ length(ax__view_registry));
+1;
+
+/* the registered entry has shape [view_id, args, "2d"] */
+(reactive_reset(), ax__clear_views(),
+ widget_slider("rfreq", 0.1, 5),
+ ax_draw2d(explicit(sin('signal("rfreq") * x), x, -%pi, %pi)),
+ third(first(ax__view_registry)));
+"2d";
+
+/* ax__replot_2d on an unknown id errors */
+errcatch(ax__replot_2d("not_a_real_view"));
+[];
+
+/* a plot with no signals doesn't register a view */
+(reactive_reset(), ax__clear_views(),
+ ax_draw2d(explicit(sin(x), x, -%pi, %pi)),
+ length(ax__view_registry));
+0;
+
+/* animate + signal in the same call is a v0 error */
+(reactive_reset(),
+ widget_slider("rk", 0.1, 5),
+ errcatch(ax_draw2d(animate(explicit(sin('signal("rk") * x), x, -%pi, %pi),
+                            [j, 0, 1, 5]))));
+[];
+
+(ax__clear_views(), reactive_reset(), true);
+true;
