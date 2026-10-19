@@ -44,6 +44,9 @@ compatibility).
 - **Raw Plotly**: `ax_trace(json)` adds a trace and `layout_raw=json`
   merges into the layout, for anything not wrapped yet.
 - **CI** runs the tests with and without `numerics` and `reactive`.
+- **Documentation** for `animate`, reactive plots, `ax_box`, `ax_violin`,
+  `ax_pie`, `ax_error_bar`, and the 3D objects `parametric_surface`,
+  `implicit`, `ax_contour3d` and `ax_vector_field3d`.
 
 ### Changed
 
@@ -53,6 +56,8 @@ compatibility).
   the object, axis and index, instead of a silent gap.  `false`, `inf`,
   `minf`, `und` and `ind` still mark intentional gaps.
 - **Polar plots**: the plot area's background follows `plot_bgcolor`.
+- **`loop` is an error.**  It was accepted for animations but never
+  implemented; an animation plays once per press of the play button.
 
 ### Fixed
 
