@@ -41,7 +41,7 @@ jobs:
         uses: actions/cache@v4
         with:
           path: ~/maxima
-          key: maxima-${{ env.MAXIMA_VERSION }}-sbcl-${{ steps.sbcl.outputs.version }}-${{ steps.sbcl.outputs.image }}
+          key: maxima-${{ env.MAXIMA_VERSION }}-sbclcore-${{ steps.sbcl.outputs.version }}-${{ steps.sbcl.outputs.image }}
 
       - name: Build Maxima
         if: steps.cache-maxima.outputs.cache-hit != 'true'
@@ -52,7 +52,10 @@ jobs:
           echo "${MAXIMA_SHA256}  maxima.tar.gz" | sha256sum -c -
           tar xzf maxima.tar.gz
           cd "maxima-${MAXIMA_VERSION}"
-          ./configure --prefix="$HOME/maxima" --enable-sbcl-exec --disable-build-docs --enable-quiet-build
+          # A plain SBCL build (Maxima core + the system sbcl), as Homebrew does:
+          # a standalone --enable-sbcl-exec binary can't find SBCL's contrib
+          # modules, which Quicklisp needs.
+          ./configure --prefix="$HOME/maxima" --enable-sbcl --disable-build-docs --enable-quiet-build
           make -j"$(nproc)"
           make install
 
