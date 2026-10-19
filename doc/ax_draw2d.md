@@ -16,6 +16,9 @@ Draw 2D interactive plots using Plotly.js. Accepts Maxima draw package objects a
 | `label` | `label([text, x, y], ...)` | Text at data coordinates (rotatable, Unicode) |
 | `vector` | `vector([x, y], [dx, dy])` | Arrow from (x, y) to (x+dx, y+dy) |
 | `polygon` | `polygon([[x1,y1],...])` or `polygon(xs, ys)` | Filled polygon (closed automatically) |
+| `rectangle` | `rectangle([x1,y1], [x2,y2])` | Rectangle from opposite corners (see Shapes) |
+| `ellipse` | `ellipse(xc, yc, a, b)` or `ellipse(xc, yc, a, b, ang1, ang2)` | Ellipse, or sector from `ang1` sweeping `ang2` degrees |
+| `hline` / `vline` | `hline(y1, ...)` / `vline(x1, ...)` | Horizontal / vertical lines across the whole plot |
 | `ax_trace` | `ax_trace(json_string)` | A raw Plotly trace, emitted verbatim (see Raw Plotly) |
 
 **Aximar objects:**
@@ -125,6 +128,24 @@ ax_draw2d(
 by length).  Heads follow the curve's direction on screen, so they stay
 correct under `aspect_ratio`; `head_size` scales them.
 
+By default each head follows the curve's local direction
+(`head_direction="tangent"`), as in most plotting libraries.  For wavy or
+noisy curves, `head_direction="chord"` points each head along the curve's
+overall direction instead: from the point one head-spacing of length back
+(the start of the curve, for a single `head_end`).
+
+A head's tip sits on its data point and the head extends back over the
+curve (Plotly can only offset markers backwards).  For a wavy line such as a
+photon, end the data with a short straight run about one head long, so the
+wiggle stops where the head begins, as TikZ users do with `post length`:
+
+```maxima
+photon: append(
+  makelist([s, 0.03*sin(12*%pi*s)], s, makelist(i/100, i, 0, 100)),
+  [[1.15, 0]])$
+ax_draw2d(lines(photon, head_end=true, head_size=1.2), aspect_ratio=true)$
+```
+
 `explicit` accepts the draw package's `filled_func`: `filled_func=true` fills
 between the curve and y = 0, and `filled_func=g(x)` fills between the curve
 and g, using `fill_color`.
@@ -139,6 +160,26 @@ ax_draw2d(
 
 Like the draw package, `filled_func` is sticky when given at the top level:
 it applies to every later `explicit` until reset with `filled_func=false`.
+
+#### Shapes
+
+`rectangle`, `ellipse`, `hline` and `vline` are drawn as Plotly layout
+shapes: they never appear in the legend or take hover.  `rectangle` and
+`ellipse` take the draw package's arguments.  The outline uses `color`,
+`line_width` and `dash`; `rectangle` and `ellipse` are filled only when
+`fill_color` is set.  `layer="below"` draws a shape underneath the data.
+Like `label`, shapes are not yet supported inside `animate(...)`.
+
+```maxima
+ax_draw2d(
+  rectangle([0, 0], [1, 1], fill_color="rgba(0,150,0,0.15)", layer="below"),
+  ellipse(0.5, 0.5, 0.5, 0.25, color="blue"),
+  ellipse(0, 0, 0.3, 0.3, 0, 90, fill_color="orange"),
+  hline(0.5, dash="dot"), vline(0.5, dash="dot"),
+  explicit(x^2, x, 0, 1),
+  aspect_ratio=true
+)$
+```
 
 #### Raw Plotly
 
@@ -220,6 +261,9 @@ Options use Plotly-native naming and apply to subsequent objects until overridde
 | `transparent` | false | Polygon outline only, no fill |
 | `head_end` / `head_start` | false | Arrowhead at the end / start of a curve |
 | `head_count` | 0 | Arrowheads evenly spaced along a curve |
+| `head_direction` | `"tangent"` | Curve arrowheads follow the local direction (`"tangent"`) or the overall direction (`"chord"`) |
+| `line_shape` | `"linear"` | Line interpolation: `"linear"`, `"spline"`, or steps `"hv"`, `"vh"`, `"hvh"`, `"vhv"` |
+| `layer` | `"above"` | Shapes: draw `"above"` or `"below"` the data |
 | `filled_func` | false | `explicit` only: `true` fills to y = 0, `g(x)` fills between the curve and g |
 | `legendgroup` | none | Traces with the same group toggle together in the legend |
 | `colorscale` | none | Color scale for contour/heatmap (e.g. `"Viridis"`, `"Hot"`) |
@@ -253,6 +297,9 @@ Options use Plotly-native naming and apply to subsequent objects until overridde
 | `autosize` | `true` drops both default sizes so the plot fills its container |
 | `legend_position` | `"top-right"`, `"top-left"`, `"bottom-right"`, `"bottom-left"` (inside), `"top"`, `"bottom"` (outside, horizontal), `"right"`, or `[x, y]` in paper coordinates |
 | `legend_orientation` | `"h"` / `"v"` (or `horizontal` / `vertical`) |
+| `legend_title` | Legend heading |
+| `title_font_size` / `title_x` / `title_align` | Title size; horizontal position (0–1 across the figure); which side of the title sits at `title_x` (`"left"`, `"center"`, `"right"`) |
+| `colorway` | Colour sequence for traces without an explicit `color`, e.g. `[red, "#1f77b4", "green"]` |
 | `xtickvals` / `ytickvals` | Tick positions, e.g. `[0, %pi/2, %pi]` |
 | `xticktext` / `yticktext` | Tick labels matching `xtickvals` / `ytickvals`, e.g. `["0", "π/2", "π"]` |
 | `xtickformat` / `ytickformat` | d3 number format for tick labels, e.g. `".2f"`, `".0%"` |

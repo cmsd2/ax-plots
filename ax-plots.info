@@ -88,6 +88,7 @@ File: ax-plots.info,  Node: Function ax_plot2d y1 x1 y2 x2 ... options,  Up: 2D 
      * Examples: Examples 2.
      * Labels Arrows and Polygons::
      * Arrowheads and Filled Areas::
+     * Shapes::
      * Raw Plotly::
      * Data Values::
      * Per-object Options::
@@ -141,6 +142,7 @@ ax_plot2d(x^2, [x, -3, 3], title="Parabola", color="red")$
 * Examples 2::
 * Labels Arrows and Polygons::
 * Arrowheads and Filled Areas::
+* Shapes::
 * Raw Plotly::
 * Data Values::
 * Per-object Options::
@@ -228,6 +230,14 @@ Object               Syntax               Description
 ‘polygon’            ‘polygon([[x1,y1],...])’Filled polygon (closed
                      or ‘polygon(xs,      automatically)
                      ys)’
+‘rectangle’          ‘rectangle([x1,y1],  Rectangle from opposite
+                     [x2,y2])’            corners (see Shapes)
+‘ellipse’            ‘ellipse(xc, yc,     Ellipse, or sector from ‘ang1’
+                     a, b)’ or            sweeping ‘ang2’ degrees
+                     ‘ellipse(xc, yc,
+                     a, b, ang1, ang2)’
+‘hline’ / ‘vline’    ‘hline(y1, ...)’ /   Horizontal / vertical lines
+                     ‘vline(x1, ...)’     across the whole plot
 ‘ax_trace’           ‘ax_trace(json_string)’A raw Plotly trace, emitted
                                           verbatim (see Raw Plotly)
 
@@ -351,7 +361,7 @@ ax_draw2d(
      ‘transparent=true’ draws the outline only.
 
 
-File: ax-plots.info,  Node: Arrowheads and Filled Areas,  Next: Raw Plotly,  Prev: Labels Arrows and Polygons,  Up: Examples
+File: ax-plots.info,  Node: Arrowheads and Filled Areas,  Next: Shapes,  Prev: Labels Arrows and Polygons,  Up: Examples
 
 1.2.1.6 Arrowheads and Filled Areas
 ...................................
@@ -360,6 +370,23 @@ File: ax-plots.info,  Node: Arrowheads and Filled Areas,  Next: Raw Plotly,  Pre
 ‘head_start=true’ and ‘head_count=n’ (n heads evenly spaced along the
 curve by length).  Heads follow the curve's direction on screen, so they
 stay correct under ‘aspect_ratio’; ‘head_size’ scales them.
+
+By default each head follows the curve's local direction
+(‘head_direction="tangent"’), as in most plotting libraries.  For wavy
+or noisy curves, ‘head_direction="chord"’ points each head along the
+curve's overall direction instead: from the point one head-spacing of
+length back (the start of the curve, for a single ‘head_end’).
+
+A head's tip sits on its data point and the head extends back over the
+curve (Plotly can only offset markers backwards).  For a wavy line such
+as a photon, end the data with a short straight run about one head long,
+so the wiggle stops where the head begins, as TikZ users do with ‘post
+length’:
+
+photon: append(
+  makelist([s, 0.03*sin(12*%pi*s)], s, makelist(i/100, i, 0, 100)),
+  [[1.15, 0]])$
+ax_draw2d(lines(photon, head_end=true, head_size=1.2), aspect_ratio=true)$
 
 ‘explicit’ accepts the draw package's ‘filled_func’: ‘filled_func=true’
 fills between the curve and y = 0, and ‘filled_func=g(x)’ fills between
@@ -376,9 +403,31 @@ level: it applies to every later ‘explicit’ until reset with
 ‘filled_func=false’.
 
 
-File: ax-plots.info,  Node: Raw Plotly,  Next: Data Values,  Prev: Arrowheads and Filled Areas,  Up: Examples
+File: ax-plots.info,  Node: Shapes,  Next: Raw Plotly,  Prev: Arrowheads and Filled Areas,  Up: Examples
 
-1.2.1.7 Raw Plotly
+1.2.1.7 Shapes
+..............
+
+‘rectangle’, ‘ellipse’, ‘hline’ and ‘vline’ are drawn as Plotly layout
+shapes: they never appear in the legend or take hover.  ‘rectangle’ and
+‘ellipse’ take the draw package's arguments.  The outline uses ‘color’,
+‘line_width’ and ‘dash’; ‘rectangle’ and ‘ellipse’ are filled only when
+‘fill_color’ is set.  ‘layer="below"’ draws a shape underneath the data.
+Like ‘label’, shapes are not yet supported inside ‘animate(...)’.
+
+ax_draw2d(
+  rectangle([0, 0], [1, 1], fill_color="rgba(0,150,0,0.15)", layer="below"),
+  ellipse(0.5, 0.5, 0.5, 0.25, color="blue"),
+  ellipse(0, 0, 0.3, 0.3, 0, 90, fill_color="orange"),
+  hline(0.5, dash="dot"), vline(0.5, dash="dot"),
+  explicit(x^2, x, 0, 1),
+  aspect_ratio=true
+)$
+
+
+File: ax-plots.info,  Node: Raw Plotly,  Next: Data Values,  Prev: Shapes,  Up: Examples
+
+1.2.1.8 Raw Plotly
 ..................
 
 Anything not wrapped by ax-plots can be passed through as JSON:
@@ -395,7 +444,7 @@ ax_draw2d(
 
 File: ax-plots.info,  Node: Data Values,  Next: Per-object Options,  Prev: Raw Plotly,  Up: Examples
 
-1.2.1.8 Data Values
+1.2.1.9 Data Values
 ...................
 
 ‘lines’ and ‘points’ data may contain exact numeric constants such as
@@ -408,8 +457,8 @@ also accepted in ‘xrange’ / ‘yrange’, e.g. ‘xrange=[-%pi, %pi]’.
 
 File: ax-plots.info,  Node: Per-object Options,  Next: Programmatic Use,  Prev: Data Values,  Up: Examples
 
-1.2.1.9 Per-object Options
-..........................
+1.2.1.10 Per-object Options
+...........................
 
 Style options can be given as trailing arguments inside an object.  They
 apply to that object only and do not change the options in effect for
@@ -428,7 +477,7 @@ legend.
 
 File: ax-plots.info,  Node: Programmatic Use,  Next: Style Options 2,  Prev: Per-object Options,  Up: Examples
 
-1.2.1.10 Programmatic Use
+1.2.1.11 Programmatic Use
 .........................
 
 To build a figure in a loop, collect objects and options in a list and
@@ -440,7 +489,7 @@ apply(ax_draw2d, append(objs, [title="Fan", aspect_ratio=true]))$
 
 File: ax-plots.info,  Node: Style Options 2,  Next: Layout Options 2,  Prev: Programmatic Use,  Up: Examples
 
-1.2.1.11 Style Options
+1.2.1.12 Style Options
 ......................
 
 Options use Plotly-native naming and apply to subsequent objects until
@@ -490,6 +539,16 @@ Option              Default                Description
 ‘head_start’                               of a curve
 ‘head_count’        0                      Arrowheads evenly spaced
                                            along a curve
+‘head_direction’    ‘"tangent"’            Curve arrowheads follow the
+                                           local direction (‘"tangent"’)
+                                           or the overall direction
+                                           (‘"chord"’)
+‘line_shape’        ‘"linear"’             Line interpolation:
+                                           ‘"linear"’, ‘"spline"’, or
+                                           steps ‘"hv"’, ‘"vh"’,
+                                           ‘"hvh"’, ‘"vhv"’
+‘layer’             ‘"above"’              Shapes: draw ‘"above"’ or
+                                           ‘"below"’ the data
 ‘filled_func’       false                  ‘explicit’ only: ‘true’ fills
                                            to y = 0, ‘g(x)’ fills
                                            between the curve and g
@@ -522,7 +581,7 @@ Option              Default                Description
 
 File: ax-plots.info,  Node: Layout Options 2,  Next: Examples 3,  Prev: Style Options 2,  Up: Examples
 
-1.2.1.12 Layout Options
+1.2.1.13 Layout Options
 .......................
 
 Option                      Description
@@ -553,6 +612,14 @@ Option                      Description
                             ‘"right"’, or ‘[x, y]’ in paper coordinates
 ‘legend_orientation’        ‘"h"’ / ‘"v"’ (or ‘horizontal’ /
                             ‘vertical’)
+‘legend_title’              Legend heading
+‘title_font_size’ /         Title size; horizontal position (0-1 across
+‘title_x’ / ‘title_align’   the figure); which side of the title sits
+                            at ‘title_x’ (‘"left"’, ‘"center"’,
+                            ‘"right"’)
+‘colorway’                  Colour sequence for traces without an
+                            explicit ‘color’, e.g. ‘[red, "#1f77b4",
+                            "green"]’
 ‘xtickvals’ / ‘ytickvals’   Tick positions, e.g. ‘[0, %pi/2, %pi]’
 ‘xticktext’ / ‘yticktext’   Tick labels matching ‘xtickvals’ /
                             ‘ytickvals’, e.g. ‘["0", "π/2", "π"]’
@@ -585,7 +652,7 @@ Calling forms:
 
 File: ax-plots.info,  Node: Examples 3,  Next: Style Options 3,  Prev: Layout Options 2,  Up: Examples
 
-1.2.1.13 Examples
+1.2.1.14 Examples
 .................
 
 /* Cardioid */
@@ -607,7 +674,7 @@ ax_polar(θ/10, [θ, 0, 6*%pi], title="Archimedean Spiral")$
 
 File: ax-plots.info,  Node: Style Options 3,  Next: Layout Options 3,  Prev: Examples 3,  Up: Examples
 
-1.2.1.14 Style Options
+1.2.1.15 Style Options
 ......................
 
 Option              Default                Description
@@ -624,7 +691,7 @@ Option              Default                Description
 
 File: ax-plots.info,  Node: Layout Options 3,  Prev: Style Options 3,  Up: Examples
 
-1.2.1.15 Layout Options
+1.2.1.16 Layout Options
 .......................
 
 Option                      Description
@@ -637,8 +704,13 @@ Option                      Description
                             fills its container
 ‘margin’                    Plot margins in pixels: a number, or ‘[l,
                             r, t, b]’
-‘legend_position’ /         Legend placement; see ‘ax_draw2d’
-‘legend_orientation’
+‘legend_position’ /         Legend placement and heading; see
+‘legend_orientation’ /      ‘ax_draw2d’
+‘legend_title’
+‘title_font_size’ /         Title styling; see ‘ax_draw2d’
+‘title_x’ / ‘title_align’
+‘colorway’                  Colour sequence for traces without an
+                            explicit ‘color’
 ‘layout_raw’                JSON object string merged into the Plotly
                             layout; see ‘ax_draw2d’
 ‘plot_bgcolor’              Plot-area background color (default
@@ -763,8 +835,13 @@ Option                      Description
                             fills its container
 ‘margin’                    Plot margins in pixels: a number, or ‘[l,
                             r, t, b]’
-‘legend_position’ /         Legend placement; see ‘ax_draw2d’
-‘legend_orientation’
+‘legend_position’ /         Legend placement and heading; see
+‘legend_orientation’ /      ‘ax_draw2d’
+‘legend_title’
+‘title_font_size’ /         Title styling; see ‘ax_draw2d’
+‘title_x’ / ‘title_align’
+‘colorway’                  Colour sequence for traces without an
+                            explicit ‘color’
 ‘layout_raw’                JSON object string merged into the Plotly
                             layout; see ‘ax_draw2d’
 ‘logx’ / ‘logy’ / ‘logz’    Log-scale axes (‘true’/‘false’)
@@ -1183,47 +1260,48 @@ Node: Package ax-plots189
 Node: Introduction to ax-plots444
 Node: 2D Plotting1053
 Node: Function ax_plot2d y1 x1 y2 x2 ... options1262
-Node: Examples2822
-Node: Style Options3978
-Node: Layout Options4916
-Node: Supported Objects6143
-Node: Examples 28634
-Node: Labels Arrows and Polygons10136
-Node: Arrowheads and Filled Areas11895
-Node: Raw Plotly12953
-Node: Data Values13554
-Node: Per-object Options14179
-Node: Programmatic Use14820
-Node: Style Options 215232
-Node: Layout Options 220389
-Node: Examples 323774
-Node: Style Options 324239
-Node: Layout Options 325045
-Node: 3D Plotting26264
-Node: Function ax_draw3d [args]26450
-Node: Supported Draw Objects26824
-Node: Examples 427707
-Node: Style Options 428436
-Node: Layout Options 429147
-Node: Statistical Charts30610
-Node: Function ax_bar categories values30818
-Node: Examples 531617
-Node: Relevant Options32473
-Node: Layout Options 532896
-Node: Examples 633560
-Node: Relevant Options 234219
-Node: Layout Options 634615
-Node: Examples 735514
-Node: Relevant Options 336026
-Node: Field Plots36814
-Node: Function ax_contour expr xvar xlo xhi yvar ylo yhi37005
-Node: Examples 837670
-Node: Relevant Options 438217
-Node: Examples 939294
-Node: Relevant Options 539971
-Node: Examples 1041092
-Node: Relevant Options 641526
-Node: Function and variable index42183
+Node: Examples2838
+Node: Style Options4005
+Node: Layout Options4943
+Node: Supported Objects6170
+Node: Examples 29185
+Node: Labels Arrows and Polygons10687
+Node: Arrowheads and Filled Areas12446
+Node: Shapes14320
+Node: Raw Plotly15235
+Node: Data Values15815
+Node: Per-object Options16440
+Node: Programmatic Use17083
+Node: Style Options 217495
+Node: Layout Options 223372
+Node: Examples 327262
+Node: Style Options 327727
+Node: Layout Options 328533
+Node: 3D Plotting30010
+Node: Function ax_draw3d [args]30196
+Node: Supported Draw Objects30570
+Node: Examples 431453
+Node: Style Options 432182
+Node: Layout Options 432893
+Node: Statistical Charts34614
+Node: Function ax_bar categories values34822
+Node: Examples 535621
+Node: Relevant Options36477
+Node: Layout Options 536900
+Node: Examples 637564
+Node: Relevant Options 238223
+Node: Layout Options 638619
+Node: Examples 739518
+Node: Relevant Options 340030
+Node: Field Plots40818
+Node: Function ax_contour expr xvar xlo xhi yvar ylo yhi41009
+Node: Examples 841674
+Node: Relevant Options 442221
+Node: Examples 943298
+Node: Relevant Options 543975
+Node: Examples 1045096
+Node: Relevant Options 645530
+Node: Function and variable index46187
 
 End Tag Table
 

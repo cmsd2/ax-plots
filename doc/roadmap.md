@@ -93,6 +93,17 @@ draw package's `filled_func` option on `explicit` (`true` → `tozeroy`;
 `fill_between` object.  Both make the `compile_grid` animation fast path
 stand aside, since they change the trace shape.
 
+`head_direction="chord"` (opt-in; tangent stays the default, as in
+Mathematica, matplotlib recipes, Plotly and TikZ) points heads along the
+curve's overall direction for wavy or noisy data.  Plotly places an
+arrow marker's *tip* on the point and `marker.standoff` only moves it
+backwards (negative values are rejected), so a head can't be pushed past
+the end of the line; for wavy lines the docs recommend ending the data
+with a straight run about one head long (TikZ's `post length` idiom).
+Head markers set `line.width` 0 and `opacity` 1: Plotly's default marker
+outline cut a light rim into the line, and an array-valued `size` makes
+Plotly fade markers to 0.7 as for bubble charts.
+
 | Object | Proposed syntax | Plotly mapping | Notes |
 |--------|-----------------|----------------|-------|
 | Text label | `label([text, x, y], ...)` (draw form) | `scatter` `mode:"text"` or layout `annotations` | Options: `font_size`, `font_color`, `font_family`, `text_angle`, `xanchor`/`yanchor`.  Unicode must round-trip (`i⁺`, `𝓘`, Greek).  Rotation needs annotations (`textangle`), not text traces. |
@@ -102,6 +113,12 @@ stand aside, since they change the trace shape.
 | Fill between curves | `fill="tonexty"` already passes through; add `fill_between(expr1, expr2, x, lo, hi)` | two traces, second `fill:"tonexty"` | Common for regions / inequalities. |
 
 ### Should-have
+
+Shapes are **done** (2D) as layout `shapes`: draw-form
+`rectangle([x1,y1],[x2,y2])`, `ellipse(xc,yc,a,b)` and the sector form
+`ellipse(xc,yc,a,b,ang1,ang2)` (an SVG path), and `hline(...)` /
+`vline(...)` spanning the plot in paper coordinates; `layer` puts them
+below the data.  `line_shape` is **done**.
 
 | Object | Proposed syntax | Plotly mapping | Notes |
 |--------|-----------------|----------------|-------|
@@ -135,9 +152,9 @@ size; now documented.  `autosize`, `legend_position` and
 | ~~`aspect_ratio`~~ | accept a number as well as `true` (`true` ≡ `1`) | `yaxis.scaleanchor:"x"` + `scaleratio` |
 | ~~`constrain`~~ | `"range"` (Plotly default) / `"domain"` | `xaxis/yaxis.constrain` — `"domain"` shrinks the plot area instead of widening a range, so explicit `xrange`/`yrange` are honoured exactly under `aspect_ratio` |
 | ~~`autosize`~~ | `autosize=true` drops the 700×700 / 700×450 defaults | omit `width`/`height`, `layout.autosize` |
-| `title` styling | `title_font_size`, `title_x`, `title_align` | `layout.title.font`, `.x`, `.xanchor` |
+| ~~`title` styling~~ | `title_font_size`, `title_x`, `title_align` | `layout.title.font`, `.x`, `.xanchor` |
 | `font` | `font_family`, `font_size`, `font_color` (global) | `layout.font` |
-| Legend | ~~`legend_position`~~ (`"top-right"`, `"bottom"`, `[x, y]`), ~~`legend_orientation`~~, `legend_title` | `layout.legend` |
+| ~~Legend~~ | ~~`legend_position`~~ (`"top-right"`, `"bottom"`, `[x, y]`), ~~`legend_orientation`~~, ~~`legend_title`~~ | `layout.legend` |
 | Theme | `theme="light"/"dark"/"auto"` | background / grid / text colours; today the white `plot_bgcolor` / `paper_bgcolor` defaults fight dark hosts |
 
 ### Axes
@@ -155,8 +172,8 @@ is clockwise, `label_angle` is counterclockwise.
 
 ### Colour
 
-- Discrete colour sequences for multi-trace plots (`colorway`), not
-  only continuous `colorscale`.
+- ~~Discrete colour sequences for multi-trace plots (`colorway`), not
+  only continuous `colorscale`.~~ **Done** (`colorway=[...]`).
 - Named palettes, consistent between 2D, 3D and contour/heatmap.
 
 ## 4. Output and verification
@@ -167,6 +184,11 @@ is clockwise, `label_angle` is counterclockwise.
    GUI.  Today the MCP `run_cell` result for an `ax_draw2d` cell has
    `plot_svg: null`.  Likely host-side (Plotly `toImage` in the
    renderer, or kaleido), with an ax-plots option to request it.
+   Meanwhile, rendering the emitted `.plotly.json` with plotly.py +
+   kaleido 0.2.1 (bundled Chromium) in a throwaway venv works for
+   checking output by eye; it is how the arrowhead issues above were
+   found.  An `rtest`-adjacent script doing this would make a cheap
+   visual regression check.
 2. **Export.**  `ax_export(plot, "file.svg" | ".png" | ".html" | ".json")`.
 3. ~~**Raw escape hatch.**~~ **Done** (2D, 3D; `layout_raw` also polar).
    `ax_trace(json_string)` to inject an
@@ -226,8 +248,8 @@ engages.  Publishing a newer `numerics` to the index fixes it.
    `margin` still needs the aximar renderer fix to take effect there.
 6. Static image output (§ 4.1) for headless verification.
 7. ~~Raw escape hatch (§ 4.3).~~ Done.
-8. Shapes, annotations, per-point markers, ~~axes/tick options~~ (done,
-   2D, except `tickangle`), legend title, theme.
+8. ~~Shapes~~, annotations, per-point markers, ~~axes/tick options~~ (done,
+   2D, except `tickangle`), ~~legend title~~, theme.
 9. Figure builder (§ 5), subplots, 3D parity.
 
 Items 1–5 are enough to reproduce the Penrose–Carter diagram at

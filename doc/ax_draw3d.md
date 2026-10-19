@@ -62,7 +62,9 @@ ax_draw3d(
 | `height` | Fixed plot height in pixels |
 | `autosize` | `true` drops the default size so the plot fills its container |
 | `margin` | Plot margins in pixels: a number, or `[l, r, t, b]` |
-| `legend_position` / `legend_orientation` | Legend placement; see `ax_draw2d` |
+| `legend_position` / `legend_orientation` / `legend_title` | Legend placement and heading; see `ax_draw2d` |
+| `title_font_size` / `title_x` / `title_align` | Title styling; see `ax_draw2d` |
+| `colorway` | Colour sequence for traces without an explicit `color` |
 | `layout_raw` | JSON object string merged into the Plotly layout; see `ax_draw2d` |
 | `logx` / `logy` / `logz` | Log-scale axes (`true`/`false`) |
 | `plot_bgcolor` | Scene background color (default `"white"`; maps to `scene.bgcolor`) |

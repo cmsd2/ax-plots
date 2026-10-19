@@ -320,6 +320,84 @@ block([r: ax__build_trace_2d(explicit(x, x, 0, 1, filled_func = x^2), ax__defaul
   [length(r), numberp(ssearch("\"showlegend\":false", r[1])), numberp(ssearch("\"fill\":\"tonexty\"", r[2]))]);
 [2, true, true];
 
+/* --- head_direction="chord" --------------------------------------------- */
+
+/* the head on a bent line points along start→end, via a point inserted just
+   behind it on that chord: (2,1) - 1e-4*(2,1) */
+block([h: ax__curve_heads([0, 1, 2], [0, 0, 1],
+         ax__apply_option(ax__apply_option(ax__default_style(), head_end = true), head_direction = "chord"))],
+  [h[1], h[2], numberp(ssearch("\"size\":[0.0,0.0,0.0,12.0]", h[4][1]))]);
+[[0, 1, 1.9998, 2], [0, 0, 0.9999, 1], true];
+
+/* tangent (default) inserts nothing */
+first(ax__curve_heads([0, 1, 2], [0, 0, 1], ax__apply_option(ax__default_style(), head_end = true)));
+[0, 1, 2];
+
+/* chord head_start points back along end→start */
+block([h: ax__curve_heads([0, 1, 2], [0, 0, 1],
+         ax__apply_option(ax__apply_option(ax__default_style(), head_start = true), head_direction = chord))],
+  [first(h[1]), first(h[2]), numberp(ssearch("\"size\":[0.0,12.0,0.0,0.0]", h[4][1]))]);
+[2.0e-4, 1.0e-4, true];
+
+/* --- shapes -------------------------------------------------------------- */
+
+ax__shape_result_p(ax__build_trace_2d(rectangle([0, 0], [1, 2]), ax__default_style()));
+true;
+
+block([j: first(first(args(ax__build_trace_2d(rectangle([0, 0], [1, 2], fill_color = pink, layer = "below"), ax__default_style()))))],
+  [numberp(ssearch("\"type\":\"rect\"", j)), numberp(ssearch("\"x1\":1.0,\"y1\":2.0", j)),
+   numberp(ssearch("\"fillcolor\":\"pink\"", j)), numberp(ssearch("\"layer\":\"below\"", j))]);
+[true, true, true, true];
+
+/* outline only unless fill_color is set */
+ssearch("fillcolor", first(first(args(ax__build_trace_2d(rectangle([0, 0], [1, 2]), ax__default_style())))));
+false;
+
+numberp(ssearch("\"type\":\"circle\",\"xref\":\"x\",\"yref\":\"y\",\"x0\":-1.0,\"y0\":-0.5,\"x1\":1.0,\"y1\":0.5",
+  first(first(args(ax__build_trace_2d(ellipse(0, 0, 1, 0.5), ax__default_style()))))));
+true;
+
+/* a full 360° sweep is still a circle shape; a partial one is a sector path */
+numberp(ssearch("\"type\":\"circle\"", first(first(args(ax__build_trace_2d(ellipse(0, 0, 1, 1, 0, 360), ax__default_style()))))));
+true;
+
+block([j: first(first(args(ax__build_trace_2d(ellipse(0, 0, 1, 1, 0, 90), ax__default_style()))))],
+  [numberp(ssearch("\"type\":\"path\"", j)), numberp(ssearch("\"path\":\"M 0.0,0.0 L 1.0,0.0 L ", j)),
+   numberp(ssearch(" Z\"", j))]);
+[true, true, true];
+
+/* hline/vline: one shape per position, spanning the plot in paper coords */
+block([r: first(args(ax__build_trace_2d(hline(0, %pi), ax__default_style())))],
+  [length(r), numberp(ssearch("\"xref\":\"paper\",\"x0\":0,\"x1\":1,\"yref\":\"y\",\"y0\":0.0", r[1]))]);
+[2, true];
+
+numberp(ssearch("\"yref\":\"paper\"", first(first(args(ax__build_trace_2d(vline(1), ax__default_style()))))));
+true;
+
+errcatch(ax__build_trace_2d(rectangle([0, 0]), ax__default_style()));
+[];
+
+errcatch(ax__build_trace_2d(hline(a), ax__default_style()));
+[];
+
+ax__layout_add_array("{\"w\":1}", "shapes", ["{}"]);
+"{\"w\":1,\"shapes\":[{}]}";
+
+/* --- line_shape, title styling, legend_title, colorway ----------------- */
+
+numberp(ssearch("\"line\":{\"shape\":\"spline\"", ax__build_trace_2d(lines([0, 1, 2], [0, 1, 0], line_shape = "spline"), ax__default_style())));
+true;
+
+numberp(ssearch("\"title\":{\"text\":\"T\",\"font\":{\"size\":20.0},\"x\":0.0,\"xanchor\":\"left\"}",
+  ax__build_layout_2d([title = "T", title_font_size = 20, title_x = 0, title_align = "left"])));
+true;
+
+numberp(ssearch("\"legend\":{\"title\":{\"text\":\"Series\"}}", ax__build_layout_3d([legend_title = "Series"])));
+true;
+
+numberp(ssearch("\"colorway\":[\"red\",\"#00f\"]", ax__build_layout_2d([colorway = [red, "#00f"]])));
+true;
+
 /* --- animate() wrapper -------------------------------------------------- */
 
 /* detection */
