@@ -46,6 +46,12 @@ ax_polar(θ/10, [θ, 0, 6*%pi], title="Archimedean Spiral")$
 | `showlegend` | Show legend (`true`/`false`) |
 | `width` | Fixed plot width in pixels |
 | `height` | Fixed plot height in pixels |
+| `autosize` | `true` drops the default size so the plot fills its container |
+| `margin` | Plot margins in pixels: a number, or `[l, r, t, b]` |
+| `legend_position` / `legend_orientation` / `legend_title` | Legend placement and heading; see `ax_draw2d` |
+| `title_font_size` / `title_x` / `title_align` | Title styling; see `ax_draw2d` |
+| `colorway` | Colour sequence for traces without an explicit `color` |
+| `layout_raw` | JSON object string merged into the Plotly layout; see `ax_draw2d` |
 | `plot_bgcolor` | Plot-area background color (default `"white"`) |
 | `paper_bgcolor` | Outer figure background color (default `"white"`) |
 

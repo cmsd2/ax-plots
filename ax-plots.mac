@@ -17,14 +17,17 @@ load("ax-plots-index.lisp")$
  * JSON builder helpers
  * ======================================================================== */
 
-/* Convert a Maxima value to a JSON-safe float string. Non-finite → "null" */
+/* Convert a Maxima value to a JSON-safe float string. Non-finite → "null".
+   Numeric constants (%pi/2, atan(3), sqrt(2)) are floated first; anything
+   that still isn't a number (free symbols, inf, und, false) → "null". */
 ax__float_to_json(v) :=
   if numberp(v) and v = v then (
     block([fv: float(v)],
       if abs(fv) = inf or fv # fv then "null"
       else string(fv))
   )
-  else "null"$
+  else block([fv: float(v)],
+    if numberp(fv) then ax__float_to_json(fv) else "null")$
 
 /* Convert a list of numbers to a JSON array string: "[1.0,2.0,3.0]" */
 ax__float_list_to_json(lst) :=
@@ -34,8 +37,16 @@ ax__float_list_to_json(lst) :=
 ax__float_matrix_to_json(mat) :=
   sconcat("[", simplode(map(ax__float_list_to_json, mat), ","), "]")$
 
-/* Wrap a string value in JSON quotes */
-ax__json_string(s) := sconcat("\"", s, "\"")$
+/* Escape backslash, double quote and newline for a JSON string body */
+ax__json_escape(s) := block([r: s],
+  r: ssubst("\\\\", "\\", r),
+  r: ssubst("\\\"", "\"", r),
+  r: ssubst("\\n", ascii(10), r),
+  r)$
+
+/* Wrap a value in JSON quotes, escaping it */
+ax__json_string(s) :=
+  sconcat("\"", ax__json_escape(if stringp(s) then s else sconcat(s)), "\"")$
 
 /* Build a JSON object from a list of [key, json_value_string] pairs */
 ax__json_obj(pairs) := block([parts],
@@ -107,7 +118,30 @@ ax__default_style() := [
   [dt, false],              /* streamline: RK4 step size (default 0.05) */
   [boxpoints, false],       /* box/violin: "all", "outliers", false (auto if false) */
   [boxmean, false],         /* box: true, "sd", or false */
-  [hole, false]             /* pie: donut hole fraction 0–1 */
+  [hole, false],            /* pie: donut hole fraction 0–1 */
+  [colorscale, false],      /* contour/heatmap/surface: Plotly colorscale name */
+  [hover_text, false],      /* string or list of strings → Plotly hovertext */
+  [hoverinfo, false],       /* e.g. "skip", "none", "x+y", "text" */
+  [showlegend, 'auto],      /* per-object only (top-level showlegend is the layout option) */
+  [font_size, false],       /* label: text size in px */
+  [font_color, false],      /* label: text colour (defaults to color) */
+  [font_family, false],     /* label: CSS font family */
+  [label_alignment, false], /* label: left / center / right of the point (Plotly xanchor) */
+  [label_valign, false],    /* label: top / middle / bottom of the point (Plotly yanchor) */
+  [label_orientation, false], /* label: horizontal / vertical (draw-compatible) */
+  [label_angle, false],     /* label: degrees counterclockwise; overrides label_orientation */
+  [head_size, false],       /* vector: arrowhead scale relative to line width (Plotly arrowsize) */
+  [head_style, false],      /* vector: arrowhead shape 0–8 (Plotly arrowhead) */
+  [head_both, false],       /* vector: heads at both ends (draw-compatible) */
+  [transparent, false],     /* polygon: true = outline only, no fill (draw-compatible) */
+  [head_end, false],        /* lines/explicit/parametric: arrowhead at the last point */
+  [head_start, false],      /* ...: arrowhead at the first point, pointing backwards */
+  [head_count, 0],          /* ...: arrowheads evenly spaced (by arc length) along the curve */
+  [head_direction, "tangent"], /* ...: "tangent" (local slope) or "chord" (overall direction) */
+  [filled_func, false],     /* explicit: true = fill to y=0; g(x) = fill between f and g (draw-compatible) */
+  [legendgroup, false],     /* traces sharing a group toggle together in the legend */
+  [line_shape, false],      /* "linear" / "spline" / "hv" / "vh" / "hvh" / "vhv" */
+  [layer, false]            /* shapes: "above" (Plotly default) or "below" the data */
 ]$
 
 /* Get a style value from the style state */
@@ -115,33 +149,56 @@ ax__style_get(style, key) := block([pair],
   pair: assoc(key, style),
   pair)$
 
-/* Set a style value, returning new style */
-ax__style_set(style, key, val) := block([result],
+/* Set a style value, returning new style.  Keys not already present are
+   appended (previously they were silently dropped). */
+ax__style_set(style, key, val) := block([result, found: false],
   result: [],
   for p in style do (
-    if p[1] = key then result: endcons([key, val], result)
+    if p[1] = key then (result: endcons([key, val], result), found: true)
     else result: endcons(p, result)
   ),
+  if not found then result: endcons([key, val], result),
   result)$
 
 /* Layout option names */
 ax__layout_option_names : [title, xrange, yrange, zrange, grid, xaxis, yaxis,
   xlabel, ylabel, zlabel, showlegend, aspect_ratio, width, height, bar_mode,
-  plot_bgcolor, paper_bgcolor, logx, logy, logz,
+  plot_bgcolor, paper_bgcolor, logx, logy, logz, margin, constrain,
+  autosize, legend_position, legend_orientation, legend_title, layout_raw,
+  title_font_size, title_x, title_align, colorway,
+  xtickvals, ytickvals, xticktext, yticktext, xtickformat, ytickformat,
+  xreversed, yreversed, xzeroline, yzeroline,
   /* animation playback options (siblings of title/xrange/...) */
   fps, transition_duration, loop, slider_label]$
 
 /* Trace/style option names */
 ax__trace_option_names : [color, fill_color, opacity, line_width, dash,
-  marker_symbol, marker_size, name, fill, colorscale, hover_text, nticks,
-  nbins, ncontours, showscale, bar_width,
+  marker_symbol, marker_size, name, fill, colorscale, hover_text, hoverinfo,
+  nticks, nbins, ncontours, showscale, bar_width,
   ngrid, arrow_scale, normalize, initial_points, t_range, dt,
-  boxpoints, boxmean, hole]$
+  boxpoints, boxmean, hole,
+  /* label */
+  font_size, font_color, font_family,
+  label_alignment, label_valign, label_orientation, label_angle,
+  /* vector */
+  head_size, head_style, head_both,
+  /* polygon */
+  transparent,
+  /* curves: arrowheads, fill between */
+  head_end, head_start, head_count, head_direction, filled_func,
+  legendgroup, line_shape,
+  /* shapes */
+  layer]$
+
+/* Options accepted only inside an object, e.g. lines(xs, ys, showlegend=false).
+   At top level, showlegend is the layout option. */
+ax__object_only_option_names : [showlegend]$
 
 /* Draw object names we recognize.  `animate` is a wrapper that
    takes any other draw object and an [param, lo, hi[, n]] spec;
    it is unwrapped during the scan-pass of ax_draw2d / ax_draw3d. */
 ax__draw_object_names : [explicit, parametric, points, lines, implicit,
+  label, vector, polygon, ax_trace, rectangle, ellipse, hline, vline,
   ax_contour, ax_heatmap, ax_bar, ax_histogram,
   ax_vector_field, ax_streamline,
   parametric_surface, ax_contour3d, ax_vector_field3d,
@@ -163,6 +220,39 @@ ax__is_draw_object(item) :=
 /* Apply a style option to the style state */
 ax__apply_option(style, item) :=
   ax__style_set(style, lhs(item), rhs(item))$
+
+/* Check if an argument inside a draw object is a per-object option */
+ax__is_object_option(item) :=
+  not atom(item) and op(item) = "=" and
+  (member(lhs(item), ax__trace_option_names) or
+   member(lhs(item), ax__object_only_option_names))$
+
+/* Split trailing per-object options off a draw object:
+   lines(xs, ys, color="red", dash="dot") → [lines(xs, ys), style with
+   color/dash applied].  Only trailing equations whose lhs is a known
+   option are taken, so implicit(x^2+y^2=1, ...) is left alone.  The
+   returned style applies to this object only; the caller's sticky style
+   is unchanged. */
+ax__split_object_options(obj, style) := block([a, k, st],
+  a: args(obj),
+  k: length(a),
+  while k > 0 and ax__is_object_option(a[k]) do k: k - 1,
+  if k = length(a) then return([obj, style]),
+  st: style,
+  for i from k + 1 thru length(a) do st: ax__apply_option(st, a[i]),
+  [funmake(op(obj), firstn(a, k)), st])$
+
+/* Check that every element of a data list is numeric after float(), or an
+   explicit gap (false, inf, minf, und, ind → null in the JSON).  Errors name
+   the object, axis and 1-based index instead of silently emitting null. */
+ax__check_numeric_data(lst, objname, axis) := block([i: 0, fv],
+  for v in lst do (
+    i: i + 1,
+    fv: float(v),
+    if not numberp(fv) and not member(v, [false, inf, minf, und, ind]) then
+      error(sconcat(objname, ": ", axis, " value #", i, " is not numeric: ", string(v)))
+  ),
+  lst)$
 
 /* ========================================================================
  * Sampling helpers
@@ -417,11 +507,14 @@ ax__rk4_trajectory(fxexpr, fyexpr, xvar, yvar, x0, y0, t0, tf, h, xlo, xhi, ylo,
 
 /* Build common line/marker style properties from style state */
 ax__build_line_style(style) := block(
-  [parts, c, lw, d],
+  [parts, c, lw, d, ls],
   parts: [],
   c: ax__style_get(style, color),
   lw: ax__style_get(style, line_width),
   d: ax__style_get(style, dash),
+  ls: ax__style_get(style, line_shape),
+  if ls # false then
+    parts: endcons(sconcat("\"shape\":", ax__json_string(ls)), parts),
   if c # false then
     parts: endcons(sconcat("\"color\":", ax__json_string(ax__color_to_css(c))), parts),
   if lw # false then
@@ -444,14 +537,28 @@ ax__build_marker_style(style) := block(
     parts: endcons(sconcat("\"symbol\":", ax__json_string(sym)), parts),
   sconcat("{", simplode(parts, ","), "}"))$
 
-/* Common trace-level style properties (opacity, name, fill) */
+/* Common trace-level style properties (opacity, name, fill, legend, hover) */
 ax__build_trace_style(style, auto_name) := block(
-  [parts, op_val, nm, fl, fc],
+  [parts, op_val, nm, fl, fc, sl, hi, ht],
   parts: [],
   op_val: ax__style_get(style, opacity),
   nm: ax__style_get(style, name),
   fl: ax__style_get(style, fill),
   fc: ax__style_get(style, fill_color),
+  sl: ax__style_get(style, showlegend),
+  hi: ax__style_get(style, hoverinfo),
+  ht: ax__style_get(style, hover_text),
+  if ax__style_get(style, legendgroup) # false then
+    parts: endcons(sconcat("\"legendgroup\":",
+      ax__json_string(ax__style_get(style, legendgroup))), parts),
+  if sl = true or sl = false then
+    parts: endcons(sconcat("\"showlegend\":", if sl then "true" else "false"), parts),
+  if hi # false then
+    parts: endcons(sconcat("\"hoverinfo\":", ax__json_string(hi)), parts),
+  if stringp(ht) then
+    parts: endcons(sconcat("\"hovertext\":", ax__json_string(ht)), parts)
+  else if listp(ht) then
+    parts: endcons(sconcat("\"hovertext\":", ax__string_list_to_json(ht)), parts),
   if op_val # false and op_val # 1.0 then
     parts: endcons(sconcat("\"opacity\":", string(float(op_val))), parts),
   if nm # false then
@@ -466,40 +573,56 @@ ax__build_trace_style(style, auto_name) := block(
 
 /* 2D explicit trace: explicit(expr, var, lo, hi) → scatter line */
 ax__trace_explicit_2d(obj, style) := block(
-  [a, expr, var, lo, hi, n, data, xs, ys, parts],
+  [a, expr, var, lo, hi, n, data, xs, ys, parts, heads, ff, gtrace],
   a: args(obj),
   expr: a[1], var: a[2], lo: a[3], hi: a[4],
   n: ax__style_get(style, nticks),
   if n = false then n: 500,
   data: ax__sample_1d(expr, var, lo, hi, n),
   xs: data[1], ys: data[2],
+  /* filled_func (draw-compatible): true fills to y = 0; an expression g
+     fills between f and g via an invisible g trace + fill "tonexty" */
+  ff: ax__style_get(style, filled_func),
+  gtrace: false,
+  if ff = true then
+    style: ax__style_set(style, fill, "tozeroy")
+  else if ff # false then (
+    gtrace: sconcat("{\"x\":", ax__float_list_to_json(xs),
+      ",\"y\":", ax__float_list_to_json(ax__sample_1d(ff, var, lo, hi, n)[2]),
+      ",\"type\":\"scatter\",\"mode\":\"lines\",\"line\":{\"width\":0}",
+      ",\"showlegend\":false,\"hoverinfo\":\"skip\"}"),
+    style: ax__style_set(style, fill, "tonexty")
+  ),
+  heads: ax__curve_heads(xs, ys, style),
   parts: [
-    sconcat("\"x\":", ax__float_list_to_json(xs)),
-    sconcat("\"y\":", ax__float_list_to_json(ys)),
+    sconcat("\"x\":", ax__float_list_to_json(heads[1])),
+    sconcat("\"y\":", ax__float_list_to_json(heads[2])),
     "\"type\":\"scatter\"",
-    "\"mode\":\"lines\"",
-    sconcat("\"line\":", ax__build_line_style(style))
+    sconcat("\"mode\":", ax__json_string(heads[3])),
+    sconcat("\"line\":", ax__curve_line_json(style, heads))
   ],
-  parts: append(parts, ax__build_trace_style(style, string(expr))),
-  sconcat("{", simplode(parts, ","), "}"))$
+  parts: append(parts, heads[4], ax__build_trace_style(style, string(expr))),
+  if gtrace = false then sconcat("{", simplode(parts, ","), "}")
+  else [gtrace, sconcat("{", simplode(parts, ","), "}")])$
 
 /* 2D parametric trace: parametric(xexpr, yexpr, tvar, tlo, thi) → scatter line */
 ax__trace_parametric_2d(obj, style) := block(
-  [a, xexpr, yexpr, tvar, tlo, thi, n, data, xs, ys, parts],
+  [a, xexpr, yexpr, tvar, tlo, thi, n, data, heads, parts],
   a: args(obj),
   xexpr: a[1], yexpr: a[2], tvar: a[3], tlo: a[4], thi: a[5],
   n: ax__style_get(style, nticks),
   if n = false then n: 500,
   data: ax__sample_parametric_2d(xexpr, yexpr, tvar, tlo, thi, n),
-  xs: data[1], ys: data[2],
+  heads: ax__curve_heads(data[1], data[2], style),
   parts: [
-    sconcat("\"x\":", ax__float_list_to_json(xs)),
-    sconcat("\"y\":", ax__float_list_to_json(ys)),
+    sconcat("\"x\":", ax__float_list_to_json(heads[1])),
+    sconcat("\"y\":", ax__float_list_to_json(heads[2])),
     "\"type\":\"scatter\"",
-    "\"mode\":\"lines\"",
-    sconcat("\"line\":", ax__build_line_style(style))
+    sconcat("\"mode\":", ax__json_string(heads[3])),
+    sconcat("\"line\":", ax__curve_line_json(style, heads))
   ],
-  parts: append(parts, ax__build_trace_style(style, sconcat("(", string(xexpr), ", ", string(yexpr), ")"))),
+  parts: append(parts, heads[4],
+    ax__build_trace_style(style, sconcat("(", string(xexpr), ", ", string(yexpr), ")"))),
   sconcat("{", simplode(parts, ","), "}"))$
 
 /* 2D points trace: points(data) → scatter markers
@@ -522,8 +645,8 @@ ax__trace_points_2d(obj, style) := block(
     )
   ),
   parts: [
-    sconcat("\"x\":", ax__float_list_to_json(xs)),
-    sconcat("\"y\":", ax__float_list_to_json(ys)),
+    sconcat("\"x\":", ax__float_list_to_json(ax__check_numeric_data(xs, "points", "x"))),
+    sconcat("\"y\":", ax__float_list_to_json(ax__check_numeric_data(ys, "points", "y"))),
     "\"type\":\"scatter\"",
     "\"mode\":\"markers\"",
     sconcat("\"marker\":", ax__build_marker_style(style))
@@ -535,7 +658,7 @@ ax__trace_points_2d(obj, style) := block(
    data can be [[x1,y1],[x2,y2],...] or [y1,y2,...]
    Also supports lines(xs, ys) with separate x and y lists/ndarrays */
 ax__trace_lines_2d(obj, style) := block(
-  [a, data, xs, ys, parts],
+  [a, data, xs, ys, parts, heads],
   a: args(obj),
   if length(a) = 2 then (
     xs: ax__maybe_list(a[1]),
@@ -550,15 +673,451 @@ ax__trace_lines_2d(obj, style) := block(
       ys: data
     )
   ),
+  ax__check_numeric_data(xs, "lines", "x"),
+  ax__check_numeric_data(ys, "lines", "y"),
+  heads: ax__curve_heads(xs, ys, style),
+  parts: [
+    sconcat("\"x\":", ax__float_list_to_json(heads[1])),
+    sconcat("\"y\":", ax__float_list_to_json(heads[2])),
+    "\"type\":\"scatter\"",
+    sconcat("\"mode\":", ax__json_string(heads[3])),
+    sconcat("\"line\":", ax__curve_line_json(style, heads))
+  ],
+  parts: append(parts, heads[4], ax__build_trace_style(style, "lines")),
+  sconcat("{", simplode(parts, ","), "}"))$
+
+/* ------------------------------------------------------------------------
+ * Annotation objects: label(...) and vector(...) become Plotly layout
+ * annotations, not traces (annotations support rotated text and arrows).
+ * Their builders return ax__annotations([json, ...]); ax__draw2d_impl
+ * collects these into layout.annotations.
+ * ------------------------------------------------------------------------ */
+
+ax__annotation_result_p(r) := not atom(r) and op(r) = 'ax__annotations$
+
+/* Shape objects (rectangle, ellipse, hline, vline) likewise return
+   ax__shapes([json, ...]), collected into layout.shapes. */
+ax__shape_result_p(r) := not atom(r) and op(r) = 'ax__shapes$
+
+/* Results that go into the layout rather than the trace list */
+ax__layout_result_p(r) := ax__annotation_result_p(r) or ax__shape_result_p(r)$
+
+/* Splice "key":[items] into a layout JSON object string */
+ax__layout_add_array(layout_json, key, items) := block([body],
+  /* Trim the trailing "}" */
+  body: substring(layout_json, 1, slength(layout_json)),
+  sconcat(body, ",\"", key, "\":[", simplode(items, ","), "]}"))$
+
+ax__layout_add_annotations(layout_json, anns) :=
+  ax__layout_add_array(layout_json, "annotations", anns)$
+
+/* Label font: font_size, font_color (falls back to color), font_family.
+   Returns a JSON object string, or false when nothing is set. */
+ax__label_font_json(style) := block([parts, sz, fc, fam],
+  parts: [],
+  sz: ax__style_get(style, font_size),
+  fc: ax__style_get(style, font_color),
+  if fc = false then fc: ax__style_get(style, color),
+  fam: ax__style_get(style, font_family),
+  if sz # false then
+    parts: endcons(sconcat("\"size\":", ax__float_to_json(sz)), parts),
+  if fc # false then
+    parts: endcons(sconcat("\"color\":", ax__json_string(ax__color_to_css(fc))), parts),
+  if fam # false then
+    parts: endcons(sconcat("\"family\":", ax__json_string(fam)), parts),
+  if parts = [] then false else sconcat("{", simplode(parts, ","), "}"))$
+
+/* 2D text labels: label([text, x, y], [text, x, y], ...) → annotations.
+   Same calling form as the draw package.  label_angle is degrees
+   counterclockwise (Plotly's textangle is clockwise, so it is negated). */
+ax__trace_label_2d(obj, style) := block(
+  [items, xa, ya, ang, ori, fontj, op_val, ht, common],
+  items: args(obj),
+  if items = [] then error("label: expected label([text, x, y], ...)"),
+  xa: ax__style_get(style, label_alignment),
+  ya: ax__style_get(style, label_valign),
+  ang: ax__style_get(style, label_angle),
+  ori: ax__style_get(style, label_orientation),
+  if ang = false and (ori = 'vertical or ori = "vertical") then ang: 90,
+  fontj: ax__label_font_json(style),
+  op_val: ax__style_get(style, opacity),
+  ht: ax__style_get(style, hover_text),
+  common: [],
+  if xa # false then
+    common: endcons(sconcat("\"xanchor\":", ax__json_string(xa)), common),
+  if ya # false then
+    common: endcons(sconcat("\"yanchor\":", ax__json_string(ya)), common),
+  if ang # false then
+    common: endcons(sconcat("\"textangle\":", ax__float_to_json(-ang)), common),
+  if fontj # false then
+    common: endcons(sconcat("\"font\":", fontj), common),
+  if op_val # false and op_val # 1.0 then
+    common: endcons(sconcat("\"opacity\":", ax__float_to_json(op_val)), common),
+  if stringp(ht) then
+    common: endcons(sconcat("\"hovertext\":", ax__json_string(ht)), common),
+  funmake('ax__annotations, [map(lambda([it], block([parts],
+    if not (listp(it) and length(it) = 3) then
+      error("label: each item must be [text, x, y], got:", it),
+    ax__check_numeric_data([it[2]], "label", "x"),
+    ax__check_numeric_data([it[3]], "label", "y"),
+    parts: [sconcat("\"text\":", ax__json_string(it[1])),
+            sconcat("\"x\":", ax__float_to_json(it[2])),
+            sconcat("\"y\":", ax__float_to_json(it[3])),
+            "\"xref\":\"x\"", "\"yref\":\"y\"", "\"showarrow\":false"],
+    sconcat("{", simplode(append(parts, common), ","), "}"))), items)]))$
+
+/* 2D arrow: vector([x, y], [dx, dy]) → annotation arrow from (x, y) to
+   (x+dx, y+dy), in data coordinates.  Same calling form as the draw package. */
+ax__trace_vector_2d(obj, style) := block(
+  [a, p, d, tip, parts, c, lw, hs, hst, hb, op_val, ht],
+  a: args(obj),
+  if length(a) # 2 or not listp(a[1]) or not listp(a[2])
+     or length(a[1]) # 2 or length(a[2]) # 2 then
+    error("vector: expected vector([x, y], [dx, dy]), got:", obj),
+  p: a[1], d: a[2],
+  ax__check_numeric_data(p, "vector", "origin"),
+  ax__check_numeric_data(d, "vector", "components"),
+  tip: p + d,
+  parts: [sconcat("\"x\":", ax__float_to_json(tip[1])),
+          sconcat("\"y\":", ax__float_to_json(tip[2])),
+          sconcat("\"ax\":", ax__float_to_json(p[1])),
+          sconcat("\"ay\":", ax__float_to_json(p[2])),
+          "\"xref\":\"x\"", "\"yref\":\"y\"", "\"axref\":\"x\"", "\"ayref\":\"y\"",
+          "\"text\":\"\"", "\"showarrow\":true"],
+  c: ax__style_get(style, color),
+  lw: ax__style_get(style, line_width),
+  hs: ax__style_get(style, head_size),
+  hst: ax__style_get(style, head_style),
+  hb: ax__style_get(style, head_both),
+  op_val: ax__style_get(style, opacity),
+  ht: ax__style_get(style, hover_text),
+  if c # false then
+    parts: endcons(sconcat("\"arrowcolor\":", ax__json_string(ax__color_to_css(c))), parts),
+  if lw # false then
+    parts: endcons(sconcat("\"arrowwidth\":", ax__float_to_json(lw)), parts),
+  if hs # false then
+    parts: endcons(sconcat("\"arrowsize\":", ax__float_to_json(hs)), parts),
+  if hst # false then
+    parts: endcons(sconcat("\"arrowhead\":", string(hst)), parts),
+  if hb = true then
+    parts: endcons("\"arrowside\":\"end+start\"", parts),
+  if op_val # false and op_val # 1.0 then
+    parts: endcons(sconcat("\"opacity\":", ax__float_to_json(op_val)), parts),
+  if stringp(ht) then
+    parts: endcons(sconcat("\"hovertext\":", ax__json_string(ht)), parts),
+  funmake('ax__annotations, [[sconcat("{", simplode(parts, ","), "}")]]))$
+
+/* 2D filled polygon: polygon([[x1,y1], ...]) or polygon(xs, ys) → scatter
+   with fill "toself".  The path is closed automatically.  fill_color sets
+   the fill, color/line_width/dash the outline (line_width=0 hides it);
+   transparent=true draws the outline only. */
+ax__trace_polygon_2d(obj, style) := block([a, data, xs, ys, st, parts],
+  a: args(obj),
+  if length(a) = 2 then (
+    xs: ax__maybe_list(a[1]),
+    ys: ax__maybe_list(a[2])
+  ) else if length(a) = 1 then (
+    data: ax__maybe_list(a[1]),
+    if not (listp(data) and data # [] and listp(first(data))) then
+      error("polygon: expected polygon([[x1, y1], ...]) or polygon(xs, ys)"),
+    xs: map(first, data),
+    ys: map(second, data)
+  ) else
+    error("polygon: expected polygon([[x1, y1], ...]) or polygon(xs, ys)"),
+  if length(xs) # length(ys) then
+    error("polygon: x and y lists differ in length"),
+  if length(xs) < 3 then
+    error("polygon: need at least 3 vertices"),
+  ax__check_numeric_data(xs, "polygon", "x"),
+  ax__check_numeric_data(ys, "polygon", "y"),
+  if first(xs) # last(xs) or first(ys) # last(ys) then (
+    xs: endcons(first(xs), xs),
+    ys: endcons(first(ys), ys)
+  ),
+  st: ax__style_set(style, fill,
+        if ax__style_get(style, transparent) = true then false else "toself"),
   parts: [
     sconcat("\"x\":", ax__float_list_to_json(xs)),
     sconcat("\"y\":", ax__float_list_to_json(ys)),
     "\"type\":\"scatter\"",
     "\"mode\":\"lines\"",
-    sconcat("\"line\":", ax__build_line_style(style))
+    sconcat("\"line\":", ax__build_line_style(st))
   ],
-  parts: append(parts, ax__build_trace_style(style, "lines")),
+  parts: append(parts, ax__build_trace_style(st, "polygon")),
   sconcat("{", simplode(parts, ","), "}"))$
+
+/* ------------------------------------------------------------------------
+ * Shapes: rectangle, ellipse, hline, vline → Plotly layout shapes.
+ * Outline from color / line_width / dash; fill only when fill_color is
+ * set (and transparent is not true); layer="below" puts them under the
+ * data.  Shapes are not hover targets and never appear in the legend.
+ * ------------------------------------------------------------------------ */
+
+/* Common shape style: [line, fillcolor, layer, opacity] JSON parts */
+ax__shape_style_parts(style, closed) := block([parts, fc, ly, op_val],
+  parts: [sconcat("\"line\":", ax__build_line_style(style))],
+  fc: ax__style_get(style, fill_color),
+  if closed and fc # false and ax__style_get(style, transparent) # true then
+    parts: endcons(sconcat("\"fillcolor\":", ax__json_string(ax__color_to_css(fc))), parts),
+  ly: ax__style_get(style, layer),
+  if ly # false then
+    parts: endcons(sconcat("\"layer\":", ax__json_string(ly)), parts),
+  op_val: ax__style_get(style, opacity),
+  if op_val # false and op_val # 1.0 then
+    parts: endcons(sconcat("\"opacity\":", ax__float_to_json(op_val)), parts),
+  parts)$
+
+ax__shape_json(head_parts, style, closed) :=
+  sconcat("{", simplode(append(head_parts, ax__shape_style_parts(style, closed)), ","), "}")$
+
+/* rectangle([x1, y1], [x2, y2]) — opposite corners (draw form) */
+ax__shape_rectangle(obj, style) := block([a],
+  a: args(obj),
+  if length(a) # 2 or not listp(a[1]) or not listp(a[2])
+     or length(a[1]) # 2 or length(a[2]) # 2 then
+    error("rectangle: expected rectangle([x1, y1], [x2, y2]), got:", obj),
+  ax__check_numeric_data(append(a[1], a[2]), "rectangle", "corner"),
+  funmake('ax__shapes, [[ax__shape_json(
+    ["\"type\":\"rect\"", "\"xref\":\"x\"", "\"yref\":\"y\"",
+     sconcat("\"x0\":", ax__float_to_json(a[1][1])), sconcat("\"y0\":", ax__float_to_json(a[1][2])),
+     sconcat("\"x1\":", ax__float_to_json(a[2][1])), sconcat("\"y1\":", ax__float_to_json(a[2][2]))],
+    style, true)]]))$
+
+/* ellipse(xc, yc, a, b) — full ellipse; ellipse(xc, yc, a, b, ang1, ang2)
+   — elliptic sector from ang1 sweeping ang2 degrees (draw form).  A sweep
+   of 360° or more is a full ellipse. */
+ax__shape_ellipse(obj, style) := block([a, xc, yc, ra, rb, a1, sw, n, pts],
+  a: args(obj),
+  if length(a) # 4 and length(a) # 6 then
+    error("ellipse: expected ellipse(xc, yc, a, b) or ellipse(xc, yc, a, b, ang1, ang2), got:", obj),
+  ax__check_numeric_data(a, "ellipse", "argument"),
+  [xc, yc, ra, rb]: map(lambda([v], float(v)), firstn(a, 4)),
+  if length(a) = 4 or abs(float(a[6])) >= 360 then
+    return(funmake('ax__shapes, [[ax__shape_json(
+      ["\"type\":\"circle\"", "\"xref\":\"x\"", "\"yref\":\"y\"",
+       sconcat("\"x0\":", ax__float_to_json(xc - ra)), sconcat("\"y0\":", ax__float_to_json(yc - rb)),
+       sconcat("\"x1\":", ax__float_to_json(xc + ra)), sconcat("\"y1\":", ax__float_to_json(yc + rb))],
+      style, true)]])),
+  a1: float(a[5]) * %pi / 180, sw: float(a[6]) * %pi / 180,
+  n: max(2, ceiling(abs(float(a[6])) / 3)),
+  pts: makelist(block([t: a1 + sw * i / n],
+         sconcat(ax__float_to_json(xc + ra * cos(t)), ",", ax__float_to_json(yc + rb * sin(t)))),
+       i, 0, n),
+  funmake('ax__shapes, [[ax__shape_json(
+    ["\"type\":\"path\"", "\"xref\":\"x\"", "\"yref\":\"y\"",
+     sconcat("\"path\":\"M ", ax__float_to_json(xc), ",", ax__float_to_json(yc),
+             " L ", simplode(pts, " L "), " Z\"")],
+    style, true)]]))$
+
+/* hline(y1, y2, ...) / vline(x1, x2, ...) — lines across the whole plot */
+ax__shape_hvline(obj, style) := block([a, horiz],
+  a: args(obj),
+  horiz: is(op(obj) = hline),
+  if a = [] then error(sconcat(op(obj), ": expected at least one position")),
+  ax__check_numeric_data(a, string(op(obj)), "position"),
+  funmake('ax__shapes, [map(lambda([v], block([fv: ax__float_to_json(v)],
+    ax__shape_json(
+      if horiz then
+        ["\"type\":\"line\"", "\"xref\":\"paper\"", "\"x0\":0", "\"x1\":1",
+         "\"yref\":\"y\"", sconcat("\"y0\":", fv), sconcat("\"y1\":", fv)]
+      else
+        ["\"type\":\"line\"", "\"yref\":\"paper\"", "\"y0\":0", "\"y1\":1",
+         "\"xref\":\"x\"", sconcat("\"x0\":", fv), sconcat("\"x1\":", fv)],
+      style, false))), a)]))$
+
+/* Whitespace characters trimmed from raw JSON strings */
+ax__ws : sconcat(" ", ascii(9), ascii(10), ascii(13))$
+
+/* Check that S looks like a JSON object string "{...}"; return it trimmed */
+ax__raw_json_object(s, who) := block([t],
+  if not stringp(s) then error(sconcat(who, ": expected a JSON object string, got:"), s),
+  t: strim(ax__ws, s),
+  if slength(t) < 2 or charat(t, 1) # "{" or charat(t, slength(t)) # "}" then
+    error(sconcat(who, ": expected a JSON object string {...}, got:"), s),
+  t)$
+
+/* Escape hatch: ax_trace("{\"type\":\"scatter\", ...}") emits the given
+   Plotly trace JSON verbatim.  Style options do not apply. */
+ax__trace_raw(obj) := block([a: args(obj)],
+  if length(a) # 1 then error("ax_trace: expected ax_trace(json_string)"),
+  ax__raw_json_object(a[1], "ax_trace"))$
+
+/* Arrowheads on curves (head_end, head_start, head_count, head_direction).
+   Uses Plotly arrow markers with angleref "previous", so each head points
+   along the segment from the previous data point in screen space (correct
+   under any aspect ratio).  Marker size is 0 except at head points.
+   head_direction="tangent" (default) uses the curve's own previous point.
+   head_direction="chord" points each head along the overall direction of
+   the curve: it inserts a point a hair behind the head on the chord from a
+   reference point one head-spacing of arc length back (the whole curve for
+   a lone head_end), so wavy curves get heads along their mean direction.
+   head_start prepends such a point ahead of the first point so the first
+   head has a "previous" point and points backwards.
+   Returns [xs, ys, mode, extra_parts]. */
+ax__curve_heads(xs, ys, style) := block(
+  [he, hs0, hc, chord, n, fx, fy, fxa, fya, cuma, segs, total, look, targets,
+   heads, qassoc, q0, eps: 1e-4, lw, hsz, sz, c, ox, oy, osz, k, q, mparts],
+  he:  ax__style_get(style, head_end) = true,
+  hs0: ax__style_get(style, head_start) = true,
+  hc:  ax__style_get(style, head_count),
+  if not integerp(hc) then hc: 0,
+  chord: member(ax__style_get(style, head_direction), ['chord, "chord"]),
+  n: length(xs),
+  if (not he and not hs0 and hc <= 0) or n < 2 then return([xs, ys, "lines", []]),
+  fx: map(lambda([v], block([f: float(v)], if numberp(f) then f else false)), xs),
+  fy: map(lambda([v], block([f: float(v)], if numberp(f) then f else false)), ys),
+  fxa: fillarray(make_array(any, n), fx),
+  fya: fillarray(make_array(any, n), fy),
+  /* segs[k] = length of segment k -> k+1 (0 across gaps);
+     cuma[k-1] = arc length from the first point to point k */
+  segs: map(lambda([x1, y1, x2, y2],
+              if x1 = false or y1 = false or x2 = false or y2 = false then 0.0
+              else sqrt((x2 - x1)^2 + (y2 - y1)^2)),
+            rest(fx, -1), rest(fy, -1), rest(fx), rest(fy)),
+  total: lsum(s, s, segs),
+  block([acc: 0.0, r: [0.0]],
+    for s in segs do (acc: acc + s, r: cons(acc, r)),
+    cuma: fillarray(make_array(any, n), reverse(r))),
+  heads: if he then [n] else [],
+  if hc > 0 and total > 0 then (
+    targets: makelist(j * total / (hc + 1), j, 1, hc),
+    block([acc: 0.0], k: 1,
+      for s in segs do (
+        k: k + 1,
+        acc: acc + s,
+        while targets # [] and acc >= first(targets) do (
+          heads: cons(k, heads),
+          targets: rest(targets))))
+  ),
+  look: total / (hc + 1),
+  /* chord mode: a point just behind head i on the chord from point j, the
+     last point at least `look` arc length before it */
+  qassoc: [],
+  if chord and total > 0 then
+    for i in heads do block([j: i - 1],
+      while j > 1 and cuma[j - 1] > cuma[i - 1] - look do j: j - 1,
+      if fxa[i - 1] # false and fya[i - 1] # false and fxa[j - 1] # false and fya[j - 1] # false then
+        qassoc: cons([i, [fxa[i - 1] - eps * (fxa[i - 1] - fxa[j - 1]),
+                          fya[i - 1] - eps * (fya[i - 1] - fya[j - 1])]], qassoc)),
+  /* head_start: a point just ahead of the first point, toward point 2
+     (tangent) or the first point at least `look` along the curve (chord) */
+  q0: false,
+  if hs0 then block([j: 2],
+    if chord and total > 0 then
+      while j < n and cuma[j - 1] < look do j: j + 1,
+    if fxa[0] # false and fya[0] # false and fxa[j - 1] # false and fya[j - 1] # false then
+      q0: [fxa[0] + eps * (fxa[j - 1] - fxa[0]), fya[0] + eps * (fya[j - 1] - fya[0])]),
+  lw:  ax__style_get(style, line_width), if not numberp(lw) then lw: 2,
+  hsz: ax__style_get(style, head_size),  if not numberp(hsz) then hsz: 1,
+  sz:  float(hsz * (3 * lw + 6)),
+  /* one pass: emit inserted points and per-point marker sizes */
+  ox: [], oy: [], osz: [],
+  if q0 # false then (ox: [q0[1]], oy: [q0[2]], osz: [0]),
+  k: 0,
+  for p in map("[", xs, ys) do (
+    k: k + 1,
+    q: assoc(k, qassoc),
+    if q # false then (ox: cons(q[1], ox), oy: cons(q[2], oy), osz: cons(0, osz)),
+    ox: cons(p[1], ox), oy: cons(p[2], oy),
+    osz: cons(if member(k, heads) or (k = 1 and q0 # false) then sz else 0, osz)),
+  mparts: ["\"symbol\":\"arrow\"", "\"angleref\":\"previous\"",
+           sconcat("\"size\":", ax__float_list_to_json(reverse(osz)))],
+  /* an explicit line color doesn't propagate to markers in Plotly */
+  c: ax__style_get(style, color),
+  if c # false then
+    mparts: endcons(sconcat("\"color\":", ax__json_string(ax__color_to_css(c))), mparts),
+  /* no outline: Plotly's default marker outline cuts a light rim into the line;
+     opacity 1: an array-valued size makes Plotly treat the trace as a bubble
+     chart and fade markers to 0.7 (trace-level opacity still applies) */
+  mparts: append(mparts, ["\"line\":{\"width\":0}", "\"opacity\":1"]),
+  [reverse(ox), reverse(oy), "lines+markers", [sconcat("\"marker\":{", simplode(mparts, ","), "}")]])$
+
+/* Line style for a curve built with ax__curve_heads.  With heads, Plotly's
+   line simplification (on by default) splits a lines+markers trace into
+   short paths and can drop a piece next to a head, leaving a visible gap;
+   simplify=false keeps the line whole. */
+ax__curve_line_json(style, heads) := block([s: ax__build_line_style(style)],
+  if heads[3] = "lines" then s
+  else if s = "{}" then "{\"simplify\":false}"
+  else sconcat("{\"simplify\":false,", substring(s, 2)))$
+
+/* ------------------------------------------------------------------------
+ * Layout helpers shared by the 2D, 3D and polar layout builders
+ * ------------------------------------------------------------------------ */
+
+ax__autosize_p(opts) := is(ax__layout_opt_value(opts, autosize, false) = true)$
+
+/* legend_position: "top-right" | "top-left" | "bottom-right" | "bottom-left"
+   (inside the plot), "top" | "bottom" (outside, horizontal), "right" (Plotly's
+   default), or [x, y] in paper coordinates.  legend_orientation: "h" / "v". */
+ax__legend_json(lp, lo, [lt]) := block([p, s, spec],
+  p: [],
+  if lt # [] and first(lt) # false then
+    p: endcons(sconcat("\"title\":{\"text\":", ax__json_string(first(lt)), "}"), p),
+  if lp # false then (
+    if listp(lp) then (
+      if length(lp) # 2 then error("legend_position: expected a name or [x, y], got", lp),
+      spec: [lp[1], lp[2], false, false]
+    ) else (
+      s: if stringp(lp) then lp else ssubst("-", "_", sconcat(lp)),
+      spec: if s = "top-right" then [0.99, 0.99, "right", "top"]
+        else if s = "top-left" then [0.01, 0.99, "left", "top"]
+        else if s = "bottom-right" then [0.99, 0.01, "right", "bottom"]
+        else if s = "bottom-left" then [0.01, 0.01, "left", "bottom"]
+        else if s = "top" then [0.5, 1.02, "center", "bottom"]
+        else if s = "bottom" then [0.5, -0.12, "center", "top"]
+        else if s = "right" then [1.02, 1, "left", "top"]
+        else error("legend_position: unknown position", lp),
+      if lo = false and (s = "top" or s = "bottom") then lo: "h"
+    ),
+    p: endcons(sconcat("\"x\":", ax__float_to_json(spec[1])), p),
+    p: endcons(sconcat("\"y\":", ax__float_to_json(spec[2])), p),
+    if spec[3] # false then p: endcons(sconcat("\"xanchor\":", ax__json_string(spec[3])), p),
+    if spec[4] # false then p: endcons(sconcat("\"yanchor\":", ax__json_string(spec[4])), p)
+  ),
+  if lo # false then
+    p: endcons(sconcat("\"orientation\":",
+      ax__json_string(if lo = 'horizontal or lo = "horizontal" or lo = h or lo = "h" then "h" else "v")), p),
+  sconcat("\"legend\":{", simplode(p, ","), "}"))$
+
+/* Layout parts common to every layout builder: autosize, legend, colorway */
+ax__common_layout_parts(opts) := block([parts, lp, lo, lt, cw],
+  parts: [],
+  if ax__autosize_p(opts) then parts: endcons("\"autosize\":true", parts),
+  lp: ax__layout_opt_value(opts, legend_position, false),
+  lo: ax__layout_opt_value(opts, legend_orientation, false),
+  lt: ax__layout_opt_value(opts, legend_title, false),
+  if lp # false or lo # false or lt # false then
+    parts: endcons(ax__legend_json(lp, lo, lt), parts),
+  /* colorway: the colour sequence for traces without an explicit color */
+  cw: ax__layout_opt_value(opts, colorway, false),
+  if cw # false then (
+    if not listp(cw) then error("colorway: expected a list of colours, got", cw),
+    parts: endcons(sconcat("\"colorway\":", ax__string_list_to_json(map(ax__color_to_css, cw))), parts)
+  ),
+  parts)$
+
+/* title="..." plus title_font_size, title_x (0–1, paper) and
+   title_align ("left" / "center" / "right", the anchor at title_x) */
+ax__title_json(text, opts) := block([p, fs, tx, ta],
+  p: [sconcat("\"text\":", ax__json_string(text))],
+  fs: ax__layout_opt_value(opts, title_font_size, false),
+  tx: ax__layout_opt_value(opts, title_x, false),
+  ta: ax__layout_opt_value(opts, title_align, false),
+  if fs # false then p: endcons(sconcat("\"font\":{\"size\":", ax__float_to_json(fs), "}"), p),
+  if tx # false then p: endcons(sconcat("\"x\":", ax__float_to_json(tx)), p),
+  if ta # false then p: endcons(sconcat("\"xanchor\":", ax__json_string(ta)), p),
+  sconcat("\"title\":{", simplode(p, ","), "}"))$
+
+/* layout_raw="{...}": append the given keys to the layout JSON.  Later keys
+   win when JSON is parsed, so these override ax-plots' own settings (except
+   annotations from label/vector, which are spliced in afterwards). */
+ax__layout_merge_raw(layout_json, raw) := block([t, inner],
+  if raw = false then return(layout_json),
+  t: ax__raw_json_object(raw, "layout_raw"),
+  inner: strim(ax__ws, substring(t, 2, slength(t))),
+  if inner = "" then return(layout_json),
+  sconcat(substring(layout_json, 1, slength(layout_json)), ",", inner, "}"))$
 
 /* 3D lines trace: lines(data) → scatter3d lines
    data is [[x1,y1,z1],[x2,y2,z2],...]
@@ -577,9 +1136,9 @@ ax__trace_lines_3d(obj, style) := block(
     zs: map(third, data)
   ),
   parts: [
-    sconcat("\"x\":", ax__float_list_to_json(xs)),
-    sconcat("\"y\":", ax__float_list_to_json(ys)),
-    sconcat("\"z\":", ax__float_list_to_json(zs)),
+    sconcat("\"x\":", ax__float_list_to_json(ax__check_numeric_data(xs, "lines", "x"))),
+    sconcat("\"y\":", ax__float_list_to_json(ax__check_numeric_data(ys, "lines", "y"))),
+    sconcat("\"z\":", ax__float_list_to_json(ax__check_numeric_data(zs, "lines", "z"))),
     "\"type\":\"scatter3d\"",
     "\"mode\":\"lines\"",
     sconcat("\"line\":", ax__build_line_style(style))
@@ -651,9 +1210,9 @@ ax__trace_points_3d(obj, style) := block(
     zs: map(third, data)
   ),
   parts: [
-    sconcat("\"x\":", ax__float_list_to_json(xs)),
-    sconcat("\"y\":", ax__float_list_to_json(ys)),
-    sconcat("\"z\":", ax__float_list_to_json(zs)),
+    sconcat("\"x\":", ax__float_list_to_json(ax__check_numeric_data(xs, "points", "x"))),
+    sconcat("\"y\":", ax__float_list_to_json(ax__check_numeric_data(ys, "points", "y"))),
+    sconcat("\"z\":", ax__float_list_to_json(ax__check_numeric_data(zs, "points", "z"))),
     "\"type\":\"scatter3d\"",
     "\"mode\":\"markers\"",
     sconcat("\"marker\":", ax__build_marker_style(style))
@@ -886,7 +1445,7 @@ ax__trace_heatmap_2d(obj, style) := block(
 
 /* Convert a list of strings to a JSON array: ["a","b","c"] */
 ax__string_list_to_json(lst) :=
-  sconcat("[", simplode(map(lambda([s], sconcat("\"", s, "\"")), lst), ","), "]")$
+  sconcat("[", simplode(map(ax__json_string, lst), ","), "]")$
 
 /* 2D bar trace: ax_bar(categories, values) or ax_bar(values) */
 ax__trace_bar_2d(obj, style) := block(
@@ -1234,13 +1793,22 @@ ax__trace_streamline_2d(obj, style) := block(
 
 /* Dispatch to the correct 2D trace builder based on object type.
    Returns either a single JSON string or a list of JSON strings (for multi-trace objects). */
-ax__build_trace_2d(obj, style) := block([objop],
+ax__build_trace_2d(obj_in, style_in) := block([objop, split, obj, style],
+  split: ax__split_object_options(obj_in, style_in),
+  obj: split[1], style: split[2],
   objop: op(obj),
   if objop = explicit then ax__trace_explicit_2d(obj, style)
   else if objop = parametric then ax__trace_parametric_2d(obj, style)
   else if objop = points then ax__trace_points_2d(obj, style)
   else if objop = lines then ax__trace_lines_2d(obj, style)
   else if objop = implicit then ax__trace_implicit_2d(obj, style)
+  else if objop = label then ax__trace_label_2d(obj, style)
+  else if objop = vector then ax__trace_vector_2d(obj, style)
+  else if objop = polygon then ax__trace_polygon_2d(obj, style)
+  else if objop = ax_trace then ax__trace_raw(obj)
+  else if objop = rectangle then ax__shape_rectangle(obj, style)
+  else if objop = ellipse then ax__shape_ellipse(obj, style)
+  else if objop = hline or objop = vline then ax__shape_hvline(obj, style)
   else if objop = ax_contour then ax__trace_contour_2d(obj, style)
   else if objop = ax_heatmap then ax__trace_heatmap_2d(obj, style)
   else if objop = ax_bar then ax__trace_bar_2d(obj, style)
@@ -1254,13 +1822,16 @@ ax__build_trace_2d(obj, style) := block([objop],
   else error("ax_draw2d: unsupported object type:", objop))$
 
 /* Dispatch to the correct 3D trace builder based on object type */
-ax__build_trace_3d(obj, style) := block([objop],
+ax__build_trace_3d(obj_in, style_in) := block([objop, split, obj, style],
+  split: ax__split_object_options(obj_in, style_in),
+  obj: split[1], style: split[2],
   objop: op(obj),
   if objop = explicit then ax__trace_explicit_3d(obj, style)
   else if objop = points then ax__trace_points_3d(obj, style)
   else if objop = lines then ax__trace_lines_3d(obj, style)
   else if objop = parametric then ax__trace_parametric_3d(obj, style)
   else if objop = parametric_surface then ax__trace_parametric_surface_3d(obj, style)
+  else if objop = ax_trace then ax__trace_raw(obj)
   else if objop = implicit then ax__trace_implicit_3d(obj, style)
   else if objop = ax_contour3d then ax__trace_contour3d(obj, style)
   else if objop = ax_vector_field3d then ax__trace_vector_field_3d(obj, style)
@@ -1278,12 +1849,38 @@ ax__build_layout_2d(opts) := block(
   for item in opts do block([key, val],
     key: lhs(item), val: rhs(item),
     if key = title then
-      parts: endcons(sconcat("\"title\":{\"text\":", ax__json_string(val), "}"), parts)
+      parts: endcons(ax__title_json(val, opts), parts)
     else if key = xrange then (
+      if ax__layout_opt_value(opts, xreversed, false) = true then val: reverse(val),
       xaxis_parts: endcons(sconcat("\"range\":", ax__float_list_to_json(val)), xaxis_parts)
     )
     else if key = yrange then (
+      if ax__layout_opt_value(opts, yreversed, false) = true then val: reverse(val),
       yaxis_parts: endcons(sconcat("\"range\":", ax__float_list_to_json(val)), yaxis_parts)
+    )
+    else if key = xtickvals then
+      xaxis_parts: endcons(sconcat("\"tickvals\":", ax__float_list_to_json(val)), xaxis_parts)
+    else if key = ytickvals then
+      yaxis_parts: endcons(sconcat("\"tickvals\":", ax__float_list_to_json(val)), yaxis_parts)
+    else if key = xticktext then
+      xaxis_parts: endcons(sconcat("\"ticktext\":", ax__string_list_to_json(val)), xaxis_parts)
+    else if key = yticktext then
+      yaxis_parts: endcons(sconcat("\"ticktext\":", ax__string_list_to_json(val)), yaxis_parts)
+    else if key = xtickformat then
+      xaxis_parts: endcons(sconcat("\"tickformat\":", ax__json_string(val)), xaxis_parts)
+    else if key = ytickformat then
+      yaxis_parts: endcons(sconcat("\"tickformat\":", ax__json_string(val)), yaxis_parts)
+    else if key = xzeroline then
+      xaxis_parts: endcons(sconcat("\"zeroline\":", if val then "true" else "false"), xaxis_parts)
+    else if key = yzeroline then
+      yaxis_parts: endcons(sconcat("\"zeroline\":", if val then "true" else "false"), yaxis_parts)
+    else if key = xreversed then (
+      if val = true and not member(xrange, map(lhs, opts)) then
+        xaxis_parts: endcons("\"autorange\":\"reversed\"", xaxis_parts)
+    )
+    else if key = yreversed then (
+      if val = true and not member(yrange, map(lhs, opts)) then
+        yaxis_parts: endcons("\"autorange\":\"reversed\"", yaxis_parts)
     )
     else if key = grid then (
       xaxis_parts: endcons(sconcat("\"showgrid\":", if val then "true" else "false"), xaxis_parts),
@@ -1299,8 +1896,20 @@ ax__build_layout_2d(opts) := block(
       yaxis_parts: endcons(sconcat("\"title\":{\"text\":", ax__json_string(val), "}"), yaxis_parts)
     else if key = showlegend then
       parts: endcons(sconcat("\"showlegend\":", if val then "true" else "false"), parts)
-    else if key = aspect_ratio then
-      yaxis_parts: endcons("\"scaleanchor\":\"x\",\"scaleratio\":1", yaxis_parts)
+    else if key = aspect_ratio then (
+      /* true ≡ 1; a number sets y-units per x-unit; false = off */
+      if val # false then
+        yaxis_parts: endcons(sconcat("\"scaleanchor\":\"x\",\"scaleratio\":",
+          ax__float_to_json(if val = true then 1 else val)), yaxis_parts)
+    )
+    else if key = constrain then (
+      /* "range" (Plotly default) widens a range to satisfy aspect_ratio;
+         "domain" shrinks the plot area so xrange/yrange are kept exactly */
+      xaxis_parts: endcons(sconcat("\"constrain\":", ax__json_string(val)), xaxis_parts),
+      yaxis_parts: endcons(sconcat("\"constrain\":", ax__json_string(val)), yaxis_parts)
+    )
+    else if key = margin then
+      parts: endcons(ax__margin_json(val), parts)
     else if key = width then (
       if val # 'auto then
         parts: endcons(sconcat("\"width\":", string(val)), parts)
@@ -1327,14 +1936,15 @@ ax__build_layout_2d(opts) := block(
   /* Default dimensions if not explicitly provided; auto skips the default.
      When aspect_ratio=true and no explicit height, use square dimensions
      so the plot area doesn't get squished by scaleanchor. */
-  if not member(width, map(lhs, opts)) then
+  if not member(width, map(lhs, opts)) and not ax__autosize_p(opts) then
     parts: endcons("\"width\":700", parts),
-  if not member(height, map(lhs, opts)) then (
-    if member(aspect_ratio, map(lhs, opts)) then
+  if not member(height, map(lhs, opts)) and not ax__autosize_p(opts) then (
+    if ax__layout_opt_value(opts, aspect_ratio, false) # false then
       parts: endcons("\"height\":700", parts)
     else
       parts: endcons("\"height\":450", parts)
   ),
+  parts: append(parts, ax__common_layout_parts(opts)),
   /* White background by default (Plotly's default is light blue #E5ECF6) */
   if not member(plot_bgcolor, map(lhs, opts)) then
     parts: endcons("\"plot_bgcolor\":\"white\"", parts),
@@ -1345,7 +1955,18 @@ ax__build_layout_2d(opts) := block(
   yaxis_parts: endcons("\"gridcolor\":\"#ddd\",\"linecolor\":\"#ddd\",\"linewidth\":1,\"zerolinecolor\":\"black\",\"zerolinewidth\":1", yaxis_parts),
   parts: endcons(sconcat("\"xaxis\":{", simplode(xaxis_parts, ","), "}"), parts),
   parts: endcons(sconcat("\"yaxis\":{", simplode(yaxis_parts, ","), "}"), parts),
-  sconcat("{", simplode(parts, ","), "}"))$
+  ax__layout_merge_raw(sconcat("{", simplode(parts, ","), "}"),
+                       ax__layout_opt_value(opts, layout_raw, false)))$
+
+/* margin=10 (all sides) or margin=[l, r, t, b] → "margin":{...} (pixels) */
+ax__margin_json(val) := block([m],
+  m: if listp(val) then val else [val, val, val, val],
+  if length(m) # 4 then
+    error("margin: expected a number or [l, r, t, b], got", val),
+  sconcat("\"margin\":{\"l\":", ax__float_to_json(m[1]),
+          ",\"r\":", ax__float_to_json(m[2]),
+          ",\"t\":", ax__float_to_json(m[3]),
+          ",\"b\":", ax__float_to_json(m[4]), "}"))$
 
 ax__build_layout_3d(opts) := block(
   [parts, scene_parts, xaxis_parts, yaxis_parts, zaxis_parts],
@@ -1357,7 +1978,7 @@ ax__build_layout_3d(opts) := block(
   for item in opts do block([key, val],
     key: lhs(item), val: rhs(item),
     if key = title then
-      parts: endcons(sconcat("\"title\":{\"text\":", ax__json_string(val), "}"), parts)
+      parts: endcons(ax__title_json(val, opts), parts)
     else if key = xrange then
       xaxis_parts: endcons(sconcat("\"range\":", ax__float_list_to_json(val)), xaxis_parts)
     else if key = yrange then
@@ -1372,6 +1993,8 @@ ax__build_layout_3d(opts) := block(
       zaxis_parts: endcons(sconcat("\"title\":{\"text\":", ax__json_string(val), "}"), zaxis_parts)
     else if key = showlegend then
       parts: endcons(sconcat("\"showlegend\":", if val then "true" else "false"), parts)
+    else if key = margin then
+      parts: endcons(ax__margin_json(val), parts)
     else if key = width then (
       if val # 'auto then
         parts: endcons(sconcat("\"width\":", string(val)), parts)
@@ -1399,10 +2022,11 @@ ax__build_layout_3d(opts) := block(
     )
   ),
   /* Default dimensions if not explicitly provided; auto skips the default */
-  if not member(width, map(lhs, opts)) then
+  if not member(width, map(lhs, opts)) and not ax__autosize_p(opts) then
     parts: endcons("\"width\":700", parts),
-  if not member(height, map(lhs, opts)) then
+  if not member(height, map(lhs, opts)) and not ax__autosize_p(opts) then
     parts: endcons("\"height\":450", parts),
+  parts: append(parts, ax__common_layout_parts(opts)),
   if not member(paper_bgcolor, map(lhs, opts)) then
     parts: endcons("\"paper_bgcolor\":\"white\"", parts),
   if not member(plot_bgcolor, map(lhs, opts)) then
@@ -1415,7 +2039,8 @@ ax__build_layout_3d(opts) := block(
   scene_parts: endcons(sconcat("\"yaxis\":{", simplode(yaxis_parts, ","), "}"), scene_parts),
   scene_parts: endcons(sconcat("\"zaxis\":{", simplode(zaxis_parts, ","), "}"), scene_parts),
   parts: endcons(sconcat("\"scene\":{", simplode(scene_parts, ","), "}"), parts),
-  sconcat("{", simplode(parts, ","), "}"))$
+  ax__layout_merge_raw(sconcat("{", simplode(parts, ","), "}"),
+                       ax__layout_opt_value(opts, layout_raw, false)))$
 
 /* ========================================================================
  * Output: write Plotly JSON to temp file
@@ -1619,6 +2244,10 @@ ax__can_fast_sample_2d(spec) := block(
   var: a[2], lo: a[3], hi: a[4],
   if not symbolp(var) then return(false),
   if not numberp(float(lo)) or not numberp(float(hi)) then return(false),
+  /* the fast path emits one plain line trace per frame; arrowheads and
+     filled_func change the trace shape, so they take the per-frame path */
+  if ax__curve_heads([0, 1], [0, 1], spec[2])[3] # "lines" then return(false),
+  if ax__style_get(spec[2], filled_func) # false then return(false),
   not (?fboundp(compile_grid) = false))$
 
 /* Bulk-sample all frames of an explicit(...) spec via compile_grid.
@@ -1851,7 +2480,7 @@ ax_draw2d([ax__args]) := ax__draw2d_impl(ax__args, false)$
    new registry entry is made (re-renders keep the original entry). */
 ax__draw2d_impl(ax__args_in, reuse_view_id) := block(
   [ax__args, signal_names, has_signals, view_id, reactive_json,
-   traces, layout_opts, style,
+   traces, annotations: [], shapes: [], layout_opts, style,
    animate_specs, anim_param, anim_lo, anim_hi, anim_n, has_anim,
    param_values, frames_jsons, layout_json, slider_json, updatemenus_json],
   /* === Reactive: detect signals BEFORE resolving (so we know what
@@ -1882,7 +2511,7 @@ ax__draw2d_impl(ax__args_in, reuse_view_id) := block(
     else if ax__is_trace_option(item) then
       style: ax__apply_option(style, item)
     else if ax__is_animate(item) then
-      block([spec, inner, p_lo, raw0, traces0, start_idx, count],
+      block([spec, split, inner, ostyle, p_lo, raw0, traces0, start_idx, count],
         if has_signals then
           error("ax_draw2d: animate(...) and signal(...) in the same call",
                 " is not supported in v0"),
@@ -1900,24 +2529,38 @@ ax__draw2d_impl(ax__args_in, reuse_view_id) := block(
           if spec[3] # anim_lo or spec[4] # anim_hi or spec[5] # anim_n then
             error("ax_draw2d: all animate(...) wrappers must share the same [lo, hi, n]")
         ),
-        inner: spec[1],
+        /* split per-object options here so the stored spec is a plain
+           explicit(...) the compile_grid fast path recognises */
+        split:   ax__split_object_options(spec[1], style),
+        inner:   split[1],
+        ostyle:  split[2],
         p_lo:    float(anim_lo),
-        raw0:    ax__build_trace_2d(subst(p_lo, anim_param, inner), style),
+        raw0:    ax__build_trace_2d(subst(p_lo, anim_param, inner), ostyle),
+        if ax__layout_result_p(raw0) then
+          error("ax_draw2d: animate(...) does not support", op(inner), "yet"),
         traces0: if listp(raw0) then raw0 else [raw0],
         start_idx: length(traces),
         count:     length(traces0),
-        animate_specs: endcons([inner, style, start_idx, count], animate_specs),
+        animate_specs: endcons([inner, ostyle, start_idx, count], animate_specs),
         traces: append(traces, traces0)
       )
     else if ax__is_draw_object(item) then
       block([result: ax__build_trace_2d(item, style)],
-        if listp(result) then
+        if ax__annotation_result_p(result) then
+          annotations: append(annotations, first(args(result)))
+        else if ax__shape_result_p(result) then
+          shapes: append(shapes, first(args(result)))
+        else if listp(result) then
           traces: append(traces, result)
         else
           traces: endcons(result, traces))
     else error("ax_draw2d: unrecognized argument:", item)
   ),
   layout_json: ax__build_layout_2d(layout_opts),
+  if annotations # [] then
+    layout_json: ax__layout_add_annotations(layout_json, annotations),
+  if shapes # [] then
+    layout_json: ax__layout_add_array(layout_json, "shapes", shapes),
   if has_anim then (
     param_values:     ax__animate_param_values(anim_lo, anim_hi, anim_n),
     frames_jsons:     ax__build_frames_2d(animate_specs, anim_param, param_values),
@@ -1978,7 +2621,7 @@ ax__draw3d_impl(ax__args_in, reuse_view_id) := block(
     else if ax__is_trace_option(item) then
       style: ax__apply_option(style, item)
     else if ax__is_animate(item) then
-      block([spec, inner, p_lo, raw0, traces0, start_idx, count],
+      block([spec, split, inner, ostyle, p_lo, raw0, traces0, start_idx, count],
         if has_signals then
           error("ax_draw3d: animate(...) and signal(...) in the same call",
                 " is not supported in v0"),
@@ -1996,13 +2639,15 @@ ax__draw3d_impl(ax__args_in, reuse_view_id) := block(
           if spec[3] # anim_lo or spec[4] # anim_hi or spec[5] # anim_n then
             error("ax_draw3d: all animate(...) wrappers must share the same [lo, hi, n]")
         ),
-        inner: spec[1],
+        split:   ax__split_object_options(spec[1], style),
+        inner:   split[1],
+        ostyle:  split[2],
         p_lo:    float(anim_lo),
-        raw0:    ax__build_trace_3d(subst(p_lo, anim_param, inner), style),
+        raw0:    ax__build_trace_3d(subst(p_lo, anim_param, inner), ostyle),
         traces0: if listp(raw0) then raw0 else [raw0],
         start_idx: length(traces),
         count:     length(traces0),
-        animate_specs: endcons([inner, style, start_idx, count], animate_specs),
+        animate_specs: endcons([inner, ostyle, start_idx, count], animate_specs),
         traces: append(traces, traces0)
       )
     else if ax__is_draw_object(item) then
@@ -2124,9 +2769,11 @@ ax__build_layout_polar(opts) := block(
   for item in opts do block([key, val],
     key: lhs(item), val: rhs(item),
     if key = title then
-      parts: endcons(sconcat("\"title\":{\"text\":", ax__json_string(val), "}"), parts)
+      parts: endcons(ax__title_json(val, opts), parts)
     else if key = showlegend then
       parts: endcons(sconcat("\"showlegend\":", if val then "true" else "false"), parts)
+    else if key = margin then
+      parts: endcons(ax__margin_json(val), parts)
     else if key = width then (
       if val # 'auto then
         parts: endcons(sconcat("\"width\":", string(val)), parts)
@@ -2141,10 +2788,11 @@ ax__build_layout_polar(opts) := block(
       parts: endcons(sconcat("\"paper_bgcolor\":", ax__json_string(val)), parts)
   ),
   /* Default dimensions if not explicitly provided; auto skips the default */
-  if not member(width, map(lhs, opts)) then
+  if not member(width, map(lhs, opts)) and not ax__autosize_p(opts) then
     parts: endcons("\"width\":700", parts),
-  if not member(height, map(lhs, opts)) then
+  if not member(height, map(lhs, opts)) and not ax__autosize_p(opts) then
     parts: endcons("\"height\":450", parts),
+  parts: append(parts, ax__common_layout_parts(opts)),
   if not member(plot_bgcolor, map(lhs, opts)) then
     parts: endcons("\"plot_bgcolor\":\"white\"", parts),
   if not member(paper_bgcolor, map(lhs, opts)) then
@@ -2155,7 +2803,8 @@ ax__build_layout_polar(opts) := block(
   polar_parts: endcons(sconcat("\"radialaxis\":{", simplode(radial_parts, ","), "}"), polar_parts),
   polar_parts: endcons(sconcat("\"angularaxis\":{", simplode(angular_parts, ","), "}"), polar_parts),
   parts: endcons(sconcat("\"polar\":{", simplode(polar_parts, ","), "}"), parts),
-  sconcat("{", simplode(parts, ","), "}"))$
+  ax__layout_merge_raw(sconcat("{", simplode(parts, ","), "}"),
+                       ax__layout_opt_value(opts, layout_raw, false)))$
 
 /* ax_polar: plot r(θ) in polar coordinates.
    ax_polar(expr, [θ, lo, hi], opts...)

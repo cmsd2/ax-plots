@@ -4,7 +4,8 @@
 
 Interactive Plotly.js plotting for Maxima via Aximar. Provides functions that
 reuse Maxima's `draw` package object syntax (`explicit`, `parametric`, `points`,
-`implicit`) and add new objects (`lines`) for data plotting. Renders with Plotly
+`implicit`, `label`, `vector`, `polygon`) and add new objects (`lines`) for data
+plotting. Renders with Plotly
 instead of gnuplot. Lists and ndarrays (from the `numerics` package) are accepted
 transparently.
 

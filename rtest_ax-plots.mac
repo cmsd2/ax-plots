@@ -21,6 +21,389 @@ ax__json_string("hello");
 listp(ax__default_style());
 true;
 
+/* --- numeric coercion --------------------------------------------------- */
+
+/* numeric constants are floated instead of becoming null */
+is(ax__float_to_json(%pi/2) = string(float(%pi/2)));
+true;
+
+is(ax__float_list_to_json([0, atan(3)]) = sconcat("[0.0,", string(float(atan(3))), "]"));
+true;
+
+/* free symbols and explicit gaps still serialise as null */
+ax__float_to_json(a*x);
+"null";
+
+ax__float_to_json(false);
+"null";
+
+/* layout ranges with %pi no longer become [null,null] */
+ssearch("null", ax__build_layout_2d([xrange=[-%pi, %pi]]));
+false;
+
+/* lines/points accept numeric constants */
+ssearch("null", ax__trace_lines_2d(lines([0, %pi/2], [0, atan(3)]), ax__default_style()));
+false;
+
+/* ...and reject non-numeric data loudly */
+errcatch(ax__trace_lines_2d(lines([0, 1], [0, a]), ax__default_style()));
+[];
+
+errcatch(ax__trace_points_2d(points([[0, 1], [b, 2]]), ax__default_style()));
+[];
+
+/* false is an explicit gap */
+numberp(ssearch("null", ax__trace_lines_2d(lines([1, 2, 3], [1, false, 3]), ax__default_style())));
+true;
+
+/* --- style state -------------------------------------------------------- */
+
+/* options missing from the defaults are kept, not silently dropped */
+ax__style_get(ax__apply_option(ax__default_style(), some_new_key = 1), some_new_key);
+1;
+
+ax__style_get(ax__apply_option(ax__default_style(), colorscale = "Viridis"), colorscale);
+"Viridis";
+
+/* --- per-object options ------------------------------------------------- */
+
+ax__split_object_options(lines([1, 2], [3, 4], color = "red", dash = "dot"), ax__default_style())[1];
+lines([1, 2], [3, 4]);
+
+ax__style_get(ax__split_object_options(lines([1, 2], [3, 4], color = "red"), ax__default_style())[2], color);
+"red";
+
+/* an implicit equation is a positional argument, not an option */
+ax__split_object_options(implicit(x^2 + y^2 = 1, x, -1, 1, y, -1, 1), ax__default_style())[1];
+implicit(x^2 + y^2 = 1, x, -1, 1, y, -1, 1);
+
+numberp(ssearch("\"color\":\"red\"", ax__build_trace_2d(lines([1, 2], [3, 4], color = red), ax__default_style())));
+true;
+
+numberp(ssearch("\"showlegend\":false", ax__build_trace_2d(lines([1, 2], [3, 4], showlegend = false), ax__default_style())));
+true;
+
+/* no showlegend key unless asked for */
+ssearch("showlegend", ax__build_trace_2d(lines([1, 2], [3, 4]), ax__default_style()));
+false;
+
+numberp(ssearch("\"hoverinfo\":\"skip\"", ax__build_trace_2d(lines([1, 2], [3, 4], hoverinfo = "skip"), ax__default_style())));
+true;
+
+numberp(ssearch("\"hovertext\":[\"a\",\"b\"]", ax__build_trace_2d(points([1, 2], [3, 4], hover_text = ["a", "b"]), ax__default_style())));
+true;
+
+/* --- JSON string escaping ----------------------------------------------- */
+
+/* a"b → a\"b ; a\b → a\\b */
+slength(ax__json_escape("a\"b"));
+4;
+
+slength(ax__json_escape("a\\b"));
+4;
+
+/* --- layout options ----------------------------------------------------- */
+
+numberp(ssearch("\"margin\":{\"l\":10.0,\"r\":10.0,\"t\":10.0,\"b\":10.0}", ax__build_layout_2d([margin = 10])));
+true;
+
+numberp(ssearch("\"margin\":{\"l\":1.0,\"r\":2.0,\"t\":3.0,\"b\":4.0}", ax__build_layout_2d([margin = [1, 2, 3, 4]])));
+true;
+
+errcatch(ax__build_layout_2d([margin = [1, 2]]));
+[];
+
+/* aspect_ratio=false no longer locks the aspect */
+ssearch("scaleanchor", ax__build_layout_2d([aspect_ratio = false]));
+false;
+
+numberp(ssearch("\"scaleratio\":1.0", ax__build_layout_2d([aspect_ratio = true])));
+true;
+
+numberp(ssearch("\"scaleratio\":2.0", ax__build_layout_2d([aspect_ratio = 2])));
+true;
+
+numberp(ssearch("\"constrain\":\"domain\"", ax__build_layout_2d([constrain = "domain"])));
+true;
+
+/* --- label -------------------------------------------------------------- */
+
+/* label returns annotations, not traces; one per [text, x, y] item */
+ax__annotation_result_p(ax__build_trace_2d(label(["A", 0, 0], ["B", 1, 1]), ax__default_style()));
+true;
+
+length(first(args(ax__build_trace_2d(label(["A", 0, 0], ["B", 1, 1]), ax__default_style()))));
+2;
+
+block([j: first(first(args(ax__build_trace_2d(label(["i⁺", %pi/2, 1]), ax__default_style()))))],
+  [numberp(ssearch("\"text\":\"i⁺\"", j)), numberp(ssearch("\"showarrow\":false", j)),
+   ssearch("null", j)]);
+[true, true, false];
+
+/* label_angle is counterclockwise; Plotly textangle is clockwise */
+numberp(ssearch("\"textangle\":-45.0",
+  first(first(args(ax__build_trace_2d(label(["h", 0, 0], label_angle = 45), ax__default_style()))))));
+true;
+
+numberp(ssearch("\"textangle\":-90.0",
+  first(first(args(ax__build_trace_2d(label(["h", 0, 0], label_orientation = vertical), ax__default_style()))))));
+true;
+
+block([j: first(first(args(ax__build_trace_2d(
+    label(["h", 0, 0], font_size = 14, color = red, label_alignment = left, label_valign = bottom),
+    ax__default_style()))))],
+  [numberp(ssearch("\"font\":{\"size\":14.0,\"color\":\"red\"}", j)),
+   numberp(ssearch("\"xanchor\":\"left\"", j)), numberp(ssearch("\"yanchor\":\"bottom\"", j))]);
+[true, true, true];
+
+/* font_color overrides color for the text */
+numberp(ssearch("\"color\":\"blue\"",
+  first(first(args(ax__build_trace_2d(label(["h", 0, 0], color = red, font_color = blue), ax__default_style()))))));
+true;
+
+errcatch(ax__build_trace_2d(label(["h", 0]), ax__default_style()));
+[];
+
+errcatch(ax__build_trace_2d(label(["h", a, 0]), ax__default_style()));
+[];
+
+/* annotations are spliced into the layout */
+ax__layout_add_annotations("{\"width\":1}", ["{\"x\":1}", "{\"x\":2}"]);
+"{\"width\":1,\"annotations\":[{\"x\":1},{\"x\":2}]}";
+
+/* --- vector ------------------------------------------------------------- */
+
+block([j: first(first(args(ax__build_trace_2d(vector([1, 2], [3, 4]), ax__default_style()))))],
+  [numberp(ssearch("\"x\":4.0,\"y\":6.0,\"ax\":1.0,\"ay\":2.0", j)),
+   numberp(ssearch("\"axref\":\"x\"", j)), numberp(ssearch("\"showarrow\":true", j))]);
+[true, true, true];
+
+block([j: first(first(args(ax__build_trace_2d(
+    vector([0, 0], [1, 1], color = red, head_both = true, head_style = 2, head_size = 1.5),
+    ax__default_style()))))],
+  [numberp(ssearch("\"arrowcolor\":\"red\"", j)), numberp(ssearch("\"arrowside\":\"end+start\"", j)),
+   numberp(ssearch("\"arrowhead\":2", j)), numberp(ssearch("\"arrowsize\":1.5", j))]);
+[true, true, true, true];
+
+errcatch(ax__build_trace_2d(vector([0, 0, 0], [1, 1]), ax__default_style()));
+[];
+
+/* --- polygon ------------------------------------------------------------ */
+
+/* closed automatically, filled toself */
+block([j: ax__build_trace_2d(polygon([[0, 0], [1, 0], [0, 1]]), ax__default_style())],
+  [numberp(ssearch("\"x\":[0.0,1.0,0.0,0.0]", j)), numberp(ssearch("\"fill\":\"toself\"", j))]);
+[true, true];
+
+/* already-closed path is not closed twice; xs/ys form */
+numberp(ssearch("\"x\":[0.0,1.0,0.0,0.0],",
+  ax__build_trace_2d(polygon([0, 1, 0, 0], [0, 0, 1, 0]), ax__default_style())));
+true;
+
+/* transparent = outline only */
+ssearch("\"fill\"", ax__build_trace_2d(polygon([[0, 0], [1, 0], [0, 1]], transparent = true), ax__default_style()));
+false;
+
+numberp(ssearch("\"fillcolor\":\"pink\"",
+  ax__build_trace_2d(polygon([[0, 0], [1, 0], [0, 1]], fill_color = pink), ax__default_style())));
+true;
+
+errcatch(ax__build_trace_2d(polygon([[0, 0], [1, 0]]), ax__default_style()));
+[];
+
+/* label/vector are not animatable yet */
+errcatch(ax_draw2d(animate(label(["k", k, 0]), [k, 0, 1, 3])));
+[];
+
+/* --- legendgroup -------------------------------------------------------- */
+
+numberp(ssearch("\"legendgroup\":\"g1\"", ax__build_trace_2d(lines([1, 2], [3, 4], legendgroup = "g1"), ax__default_style())));
+true;
+
+/* --- raw escape hatch ---------------------------------------------------- */
+
+ax__build_trace_2d(ax_trace(" {\"type\":\"bar\",\"y\":[1,2]} "), ax__default_style());
+"{\"type\":\"bar\",\"y\":[1,2]}";
+
+errcatch(ax__build_trace_2d(ax_trace("not json"), ax__default_style()));
+[];
+
+numberp(ssearch(",\"hovermode\":\"x\"}", ax__build_layout_2d([layout_raw = "{\"hovermode\":\"x\"}"])));
+true;
+
+is(ax__build_layout_2d([layout_raw = "{ }"]) = ax__build_layout_2d([]));
+true;
+
+numberp(ssearch("\"hovermode\":\"closest\"", ax__build_layout_3d([layout_raw = "{\"hovermode\":\"closest\"}"])));
+true;
+
+/* --- autosize and legend ----------------------------------------------- */
+
+block([j: ax__build_layout_2d([autosize = true])],
+  [ssearch("\"width\"", j), ssearch("\"height\"", j), numberp(ssearch("\"autosize\":true", j))]);
+[false, false, true];
+
+numberp(ssearch("\"legend\":{\"x\":0.01,\"y\":0.99,\"xanchor\":\"left\",\"yanchor\":\"top\"}",
+  ax__build_layout_2d([legend_position = "top-left"])));
+true;
+
+/* symbol form, and "bottom" defaults to a horizontal legend */
+is(ax__legend_json(top_left, false) = ax__legend_json("top-left", false));
+true;
+
+numberp(ssearch("\"orientation\":\"h\"", ax__legend_json("bottom", false)));
+true;
+
+ax__legend_json([0.2, 0.8], vertical);
+"\"legend\":{\"x\":0.2,\"y\":0.8,\"orientation\":\"v\"}";
+
+errcatch(ax__legend_json("middle-ish", false));
+[];
+
+numberp(ssearch("\"legend\":{", ax__build_layout_polar([legend_position = "top-right"])));
+true;
+
+/* --- axis options ------------------------------------------------------- */
+
+block([j: ax__build_layout_2d([xtickvals = [0, %pi], xticktext = ["0", "π"], ytickformat = ".2f", yzeroline = false])],
+  [numberp(ssearch("\"tickvals\":[0.0,3.14", j)), numberp(ssearch("\"ticktext\":[\"0\",\"π\"]", j)),
+   numberp(ssearch("\"tickformat\":\".2f\"", j)), numberp(ssearch("\"zeroline\":false", j))]);
+[true, true, true, true];
+
+numberp(ssearch("\"autorange\":\"reversed\"", ax__build_layout_2d([yreversed = true])));
+true;
+
+/* with an explicit range, reversing swaps it instead */
+block([j: ax__build_layout_2d([xrange = [0, 1], xreversed = true])],
+  [numberp(ssearch("\"range\":[1.0,0.0]", j)), ssearch("autorange", j)]);
+[true, false];
+
+/* --- arrowheads on curves ---------------------------------------------- */
+
+/* no heads: plain lines, no marker */
+block([j: ax__build_trace_2d(lines([0, 1, 2], [0, 1, 0]), ax__default_style())],
+  [numberp(ssearch("\"mode\":\"lines\"", j)), ssearch("marker", j)]);
+[true, false];
+
+block([j: ax__build_trace_2d(lines([0, 1, 2], [0, 1, 0], head_end = true), ax__default_style())],
+  [numberp(ssearch("\"mode\":\"lines+markers\"", j)),
+   numberp(ssearch("\"symbol\":\"arrow\",\"angleref\":\"previous\",\"size\":[0.0,0.0,12.0]", j))]);
+[true, true];
+
+/* with heads, Plotly line simplification is turned off (it split the line
+   and dropped a piece next to a head); without heads it is left alone */
+[numberp(ssearch("\"line\":{\"simplify\":false,", ax__build_trace_2d(lines([0, 1, 2], [0, 1, 0], head_end = true), ax__default_style()))),
+ ssearch("simplify", ax__build_trace_2d(lines([0, 1, 2], [0, 1, 0]), ax__default_style()))];
+[true, false];
+
+/* head_start prepends a point just inside the curve */
+block([j: ax__build_trace_2d(lines([0, 1, 2], [0, 0, 0], head_start = true), ax__default_style())],
+  [numberp(ssearch("\"x\":[1.0e-4,0.0,1.0,2.0]", j)), numberp(ssearch("\"size\":[0.0,12.0,0.0,0.0]", j))]);
+[true, true];
+
+/* head_count spaces heads by arc length */
+numberp(ssearch("\"size\":[0.0,0.0,12.0,0.0,0.0]",
+  ax__build_trace_2d(lines([0, 1, 2, 3, 4], [0, 0, 0, 0, 0], head_count = 1), ax__default_style())));
+true;
+
+/* explicit line colour is passed to the markers; head_size scales them */
+block([j: ax__build_trace_2d(lines([0, 1], [0, 1], head_end = true, color = red, head_size = 2), ax__default_style())],
+  [numberp(ssearch("\"size\":[0.0,24.0],\"color\":\"red\"", j))]);
+[true];
+
+numberp(ssearch("lines+markers", ax__build_trace_2d(explicit(x^2, x, 0, 1, head_end = true), ax__default_style())));
+true;
+
+numberp(ssearch("lines+markers", ax__build_trace_2d(parametric(cos(t), sin(t), t, 0, 1, head_count = 2), ax__default_style())));
+true;
+
+/* --- filled_func -------------------------------------------------------- */
+
+numberp(ssearch("\"fill\":\"tozeroy\"", ax__build_trace_2d(explicit(x, x, 0, 1, filled_func = true), ax__default_style())));
+true;
+
+block([r: ax__build_trace_2d(explicit(x, x, 0, 1, filled_func = x^2), ax__default_style())],
+  [length(r), numberp(ssearch("\"showlegend\":false", r[1])), numberp(ssearch("\"fill\":\"tonexty\"", r[2]))]);
+[2, true, true];
+
+/* --- head_direction="chord" --------------------------------------------- */
+
+/* the head on a bent line points along start→end, via a point inserted just
+   behind it on that chord: (2,1) - 1e-4*(2,1) */
+block([h: ax__curve_heads([0, 1, 2], [0, 0, 1],
+         ax__apply_option(ax__apply_option(ax__default_style(), head_end = true), head_direction = "chord"))],
+  [h[1], h[2], numberp(ssearch("\"size\":[0.0,0.0,0.0,12.0]", h[4][1]))]);
+[[0, 1, 1.9998, 2], [0, 0, 0.9999, 1], true];
+
+/* tangent (default) inserts nothing */
+first(ax__curve_heads([0, 1, 2], [0, 0, 1], ax__apply_option(ax__default_style(), head_end = true)));
+[0, 1, 2];
+
+/* chord head_start points back along end→start */
+block([h: ax__curve_heads([0, 1, 2], [0, 0, 1],
+         ax__apply_option(ax__apply_option(ax__default_style(), head_start = true), head_direction = chord))],
+  [first(h[1]), first(h[2]), numberp(ssearch("\"size\":[0.0,12.0,0.0,0.0]", h[4][1]))]);
+[2.0e-4, 1.0e-4, true];
+
+/* --- shapes -------------------------------------------------------------- */
+
+ax__shape_result_p(ax__build_trace_2d(rectangle([0, 0], [1, 2]), ax__default_style()));
+true;
+
+block([j: first(first(args(ax__build_trace_2d(rectangle([0, 0], [1, 2], fill_color = pink, layer = "below"), ax__default_style()))))],
+  [numberp(ssearch("\"type\":\"rect\"", j)), numberp(ssearch("\"x1\":1.0,\"y1\":2.0", j)),
+   numberp(ssearch("\"fillcolor\":\"pink\"", j)), numberp(ssearch("\"layer\":\"below\"", j))]);
+[true, true, true, true];
+
+/* outline only unless fill_color is set */
+ssearch("fillcolor", first(first(args(ax__build_trace_2d(rectangle([0, 0], [1, 2]), ax__default_style())))));
+false;
+
+numberp(ssearch("\"type\":\"circle\",\"xref\":\"x\",\"yref\":\"y\",\"x0\":-1.0,\"y0\":-0.5,\"x1\":1.0,\"y1\":0.5",
+  first(first(args(ax__build_trace_2d(ellipse(0, 0, 1, 0.5), ax__default_style()))))));
+true;
+
+/* a full 360° sweep is still a circle shape; a partial one is a sector path */
+numberp(ssearch("\"type\":\"circle\"", first(first(args(ax__build_trace_2d(ellipse(0, 0, 1, 1, 0, 360), ax__default_style()))))));
+true;
+
+block([j: first(first(args(ax__build_trace_2d(ellipse(0, 0, 1, 1, 0, 90), ax__default_style()))))],
+  [numberp(ssearch("\"type\":\"path\"", j)), numberp(ssearch("\"path\":\"M 0.0,0.0 L 1.0,0.0 L ", j)),
+   numberp(ssearch(" Z\"", j))]);
+[true, true, true];
+
+/* hline/vline: one shape per position, spanning the plot in paper coords */
+block([r: first(args(ax__build_trace_2d(hline(0, %pi), ax__default_style())))],
+  [length(r), numberp(ssearch("\"xref\":\"paper\",\"x0\":0,\"x1\":1,\"yref\":\"y\",\"y0\":0.0", r[1]))]);
+[2, true];
+
+numberp(ssearch("\"yref\":\"paper\"", first(first(args(ax__build_trace_2d(vline(1), ax__default_style()))))));
+true;
+
+errcatch(ax__build_trace_2d(rectangle([0, 0]), ax__default_style()));
+[];
+
+errcatch(ax__build_trace_2d(hline(a), ax__default_style()));
+[];
+
+ax__layout_add_array("{\"w\":1}", "shapes", ["{}"]);
+"{\"w\":1,\"shapes\":[{}]}";
+
+/* --- line_shape, title styling, legend_title, colorway ----------------- */
+
+numberp(ssearch("\"line\":{\"shape\":\"spline\"", ax__build_trace_2d(lines([0, 1, 2], [0, 1, 0], line_shape = "spline"), ax__default_style())));
+true;
+
+numberp(ssearch("\"title\":{\"text\":\"T\",\"font\":{\"size\":20.0},\"x\":0.0,\"xanchor\":\"left\"}",
+  ax__build_layout_2d([title = "T", title_font_size = 20, title_x = 0, title_align = "left"])));
+true;
+
+numberp(ssearch("\"legend\":{\"title\":{\"text\":\"Series\"}}", ax__build_layout_3d([legend_title = "Series"])));
+true;
+
+numberp(ssearch("\"colorway\":[\"red\",\"#00f\"]", ax__build_layout_2d([colorway = [red, "#00f"]])));
+true;
+
 /* --- animate() wrapper -------------------------------------------------- */
 
 /* detection */
