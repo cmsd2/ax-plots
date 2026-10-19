@@ -233,17 +233,20 @@ ranged parameter the runtime tracks.
 load("reactive")$
 
 k : widget_slider("freq", 0.1, 5)$
-/* k = signal("freq"); initial value 0.1 */
+/* k prints as signal(freq); initial value 0.1 */
 ```
 
-A signal is a noun form `signal(name)` where `name` is a string;
-its current value is held in a global registry indexed by name (a
-Lisp hash table on the kernel side).  Expressions that mention
+A signal is a noun form that prints as `signal(freq)`.  Its
+argument is a symbol interned in a private Lisp package
+(`REACTIVE-SIGNALS`), and its current value is held in a global
+registry indexed by the name string (a Lisp hash table on the
+kernel side).  `signal("freq")` returns the noun form for a
+registered name, for hand-typed expressions.  Expressions that mention
 `k` are *signal-valued* — they survive symbolic processing:
 
 ```maxima
 diff(sin(k*x), x);
-/* signal("freq") * cos(signal("freq") * x) */
+/* signal(freq) * cos(signal(freq) * x) */
 ```
 
 Maxima happily differentiates, integrates, simplifies — the
@@ -277,7 +280,9 @@ upgrade and the API doesn't change when it lands.
 | Function | Purpose |
 | --- | --- |
 | `widget_slider(name, lo, hi)` | register a slider signal; returns `signal(name)` |
-| `signal_p`, `signal_name`, `signal_value`, `signal_meta`, `signal_list` | inspection |
+| `widget_number`, `widget_checkbox`, `widget_dropdown` | further value-bound widget kinds |
+| `signal(name)` | noun form for a registered name |
+| `signal_p`, `signal_name`, `signal_value`, `signal_kind`, `signal_field`, `signal_meta`, `signal_list` | inspection; `signal_meta` returns `key = value` equations |
 | `signal_set(target, v)` | update current value |
 | `collect_signals(expr)` | unique signal names appearing in `expr` |
 | `resolve_signals(expr)` | substitute current values for every signal |
@@ -293,9 +298,24 @@ upgrade and the API doesn't change when it lands.
 - *Global registry* by default; explicit scoping (per-notebook,
   per-cell) added when cross-leakage becomes a problem.  Same path
   Recoil took.
-- Validation in `widget_slider`: name must be string,
-  `lo < hi`, numeric bounds, etc.  Errors at construction not at
-  use.
+- Validation in the constructors: name must be 1-128 ASCII
+  letters, digits or underscores (the same rule aximar applies
+  before `signal_set`), `lo < hi`, numeric bounds, etc.  Errors at
+  construction not at use.
+- *Symbol argument, not string.*  The first v0 used
+  `signal("freq")` with a string argument.  Maxima's sign and limit
+  code raises a Lisp type error on any noun form with a string
+  argument, so `limit` and definite `integrate` crashed on
+  signal-valued expressions.  A symbol from a private package
+  avoids that, and the Maxima reader can never intern into that
+  package, so a user variable `freq` can't capture the signal when
+  an expression is re-evaluated with `ev`.
+- *Keyed registry entries.*  `signal_meta` returns
+  `[name = "freq", kind = slider, lo = 0.1, hi = 5.0, value = 0.1]`
+  (dropdowns add `choices`).  Consumers read fields with
+  `signal_field` / `signal_kind`, so the control-spec fields from
+  Component 4 (`step`, `integer`, `label`, ...) can be added without
+  breaking ax-plots.
 
 **Maxima core changes (when we add automatic tracking):** one.
 The same `mlisp.lisp` `meval1` read hook described in
@@ -859,7 +879,7 @@ shortens our design conversation by years.
    API that gives you identity, persistence across re-renders, and
    serialisable references.  `widget_slider("freq", …)` registers
    under `"freq"`, the renderer thinks in that string, the kernel
-   thinks in the expression containing `signal("freq")`.  No synthetic
+   thinks in the expression containing `signal(freq)`.  No synthetic
    IDs, no opaque tokens.
 
 2. **Debounce / throttle on the renderer side** is mandatory, not
@@ -948,7 +968,7 @@ shortens our design conversation by years.
 1. **Symbolic substrate.**  A JS signal holds an opaque value.  Our
    signal sits inside a Maxima expression and survives `diff`,
    `integrate`, `simplify`, etc.  You can take a derivative of
-   `sin(signal("k") * x)` and the derivative still tracks the
+   `sin(signal(k) * x)` and the derivative still tracks the
    signal.  Nothing in the JS world does this — they can't, the
    substrate is just JS values.
 
