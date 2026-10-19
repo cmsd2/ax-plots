@@ -328,8 +328,17 @@ File: ax-plots.info,  Node: Labels Arrows and Polygons,  Next: Arrowheads and Fi
 
 ‘label’, ‘vector’ and ‘polygon’ take the same arguments as in the ‘draw’
 package.  ‘label’ and ‘vector’ are drawn as Plotly annotations: they
-never appear in the legend, and are not yet supported inside
-‘animate(...)’ or in ‘ax_draw3d’.
+never appear in the legend, and are not yet supported in ‘ax_draw3d’.
+They can be animated: inside ‘animate(...)’ they are rebuilt for each
+frame.  A label whose text is a float, such as the animation parameter,
+shows it to 3 significant figures:
+
+ax_draw2d(
+  parametric(cos(s), sin(s), s, 0, 2*%pi, color="gray"),
+  animate(vector([0, 0], [cos(t), sin(t)], color="red"), [t, 0, 2*%pi, 24]),
+  animate(label([t, 1.25*cos(t), 1.25*sin(t)]), [t, 0, 2*%pi, 24]),
+  aspect_ratio=true, xrange=[-1.6, 1.6], yrange=[-1.6, 1.6]
+)$
 
 ax_draw2d(
   polygon([[0,0], [2,0], [1,1.5]], fill_color="rgba(100,100,230,0.2)", line_width=0),
@@ -477,7 +486,8 @@ shapes: they never appear in the legend or take hover.  ‘rectangle’ and
 ‘ellipse’ take the draw package's arguments.  The outline uses ‘color’,
 ‘line_width’ and ‘dash’; ‘rectangle’ and ‘ellipse’ are filled only when
 ‘fill_color’ is set.  ‘layer="below"’ draws a shape underneath the data.
-Like ‘label’, shapes are not yet supported inside ‘animate(...)’.
+Like ‘label’, shapes can be animated, e.g. ‘animate(vline(cos(t)), [t,
+0, %pi])’.
 
 ax_draw2d(
   rectangle([0, 0], [1, 1], fill_color="rgba(0,150,0,0.15)", layer="below"),
@@ -1300,60 +1310,60 @@ Ref: #supported-objects6187
 Ref: #examples-19078
 Node: Labels Arrows and Polygons10427
 Ref: #labels-arrows-and-polygons10618
-Node: Arrowheads and Filled Areas12429
-Ref: #arrowheads-and-filled-areas12631
-Node: Decorations13599
-Ref: #decorations13751
-Node: Diagrams15998
-Ref: #diagrams16123
-Node: Shapes17447
-Ref: #shapes17567
-Node: Raw Plotly18343
-Ref: #raw-plotly18476
-Node: Data Values18925
-Ref: #data-values19072
-Node: Per-object Options19552
-Ref: #per-object-options19719
-Node: Lists and Groups20195
-Ref: #lists-and-groups20347
-Ref: #style-options-121174
-Ref: #layout-options-127563
-Ref: #examples-231742
-Ref: #style-options-232111
-Ref: #layout-options-232813
-Node: 3D Plotting34295
-Ref: #d-plotting-134441
-Node: Function ax_draw3d [args]34481
-Ref: #function-ax_draw3d-args34589
-Node: Supported Draw Objects34811
-Ref: #supported-draw-objects34942
-Ref: #examples-335672
-Ref: #style-options-336458
-Ref: #layout-options-337051
-Node: Statistical Charts38765
-Ref: #statistical-charts38925
-Node: Function ax_bar categories values38973
-Ref: #function-ax_bar-categories-values39105
-Ref: #examples-439698
-Node: Relevant Options40338
-Ref: #relevant-options40453
-Ref: #layout-options-440782
-Ref: #examples-541325
-Ref: #relevant-options-141889
-Ref: #layout-options-542170
-Ref: #examples-642946
-Ref: #relevant-options-243363
-Node: Field Plots44014
-Ref: #field-plots44140
-Node: Function ax_contour expr xvar xlo xhi yvar ylo yhi44205
-Ref: #function-ax_contour-expr-xvar-xlo-xhi-yvar-ylo-yhi44369
-Ref: #examples-744810
-Ref: #relevant-options-345216
-Ref: #examples-846191
-Ref: #relevant-options-446771
-Ref: #examples-947770
-Ref: #relevant-options-548106
-Node: Function and variable index48625
+Node: Arrowheads and Filled Areas12858
+Ref: #arrowheads-and-filled-areas13060
+Node: Decorations14028
+Ref: #decorations14180
+Node: Diagrams16427
+Ref: #diagrams16552
+Node: Shapes17876
+Ref: #shapes17996
+Node: Raw Plotly18788
+Ref: #raw-plotly18921
+Node: Data Values19370
+Ref: #data-values19517
+Node: Per-object Options19997
+Ref: #per-object-options20164
+Node: Lists and Groups20640
+Ref: #lists-and-groups20792
+Ref: #style-options-121619
+Ref: #layout-options-128008
+Ref: #examples-232187
+Ref: #style-options-232556
+Ref: #layout-options-233258
+Node: 3D Plotting34740
+Ref: #d-plotting-134886
+Node: Function ax_draw3d [args]34926
+Ref: #function-ax_draw3d-args35034
+Node: Supported Draw Objects35256
+Ref: #supported-draw-objects35387
+Ref: #examples-336117
+Ref: #style-options-336903
+Ref: #layout-options-337496
+Node: Statistical Charts39210
+Ref: #statistical-charts39370
+Node: Function ax_bar categories values39418
+Ref: #function-ax_bar-categories-values39550
+Ref: #examples-440143
+Node: Relevant Options40783
+Ref: #relevant-options40898
+Ref: #layout-options-441227
+Ref: #examples-541770
+Ref: #relevant-options-142334
+Ref: #layout-options-542615
+Ref: #examples-643391
+Ref: #relevant-options-243808
+Node: Field Plots44459
+Ref: #field-plots44585
+Node: Function ax_contour expr xvar xlo xhi yvar ylo yhi44650
+Ref: #function-ax_contour-expr-xvar-xlo-xhi-yvar-ylo-yhi44814
+Ref: #examples-745255
+Ref: #relevant-options-345661
+Ref: #examples-846636
+Ref: #relevant-options-447216
+Ref: #examples-948215
+Ref: #relevant-options-548551
+Node: Function and variable index49070
 
 End Tag Table
 

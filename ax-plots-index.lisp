@@ -2,16 +2,16 @@
 (let (
 (deffn-defvr-pairs '(
 ; CONTENT: (<INDEX TOPIC> . (<FILENAME> <BYTE OFFSET> <LENGTH IN CHARACTERS> <NODE NAME>))
-("ax_bar" . ("ax-plots.info" 39062 580 "Function ax_bar categories values"))
-("ax_contour" . ("ax-plots.info" 44304 466 "Function ax_contour expr xvar xlo xhi yvar ylo yhi"))
-("ax_draw3d" . ("ax-plots.info" 34555 256 "Function ax_draw3d [args]"))
+("ax_bar" . ("ax-plots.info" 39507 580 "Function ax_bar categories values"))
+("ax_contour" . ("ax-plots.info" 44749 466 "Function ax_contour expr xvar xlo xhi yvar ylo yhi"))
+("ax_draw3d" . ("ax-plots.info" 35000 256 "Function ax_draw3d [args]"))
 ))
 (section-pairs '(
 ; CONTENT: (<NODE NAME> . (<FILENAME> <BYTE OFFSET> <LENGTH IN CHARACTERS>))
 ("2D Plotting" . ("ax-plots.info" 1172 90))
-("3D Plotting" . ("ax-plots.info" 34408 73))
-("Field Plots" . ("ax-plots.info" 44107 98))
+("3D Plotting" . ("ax-plots.info" 34853 73))
+("Field Plots" . ("ax-plots.info" 44552 98))
 ("Introduction to ax-plots" . ("ax-plots.info" 543 470))
-("Statistical Charts" . ("ax-plots.info" 38878 95))
+("Statistical Charts" . ("ax-plots.info" 39323 95))
 )))
 (load-info-hashtables (maxima::maxima-load-pathname-directory) deffn-defvr-pairs section-pairs))
