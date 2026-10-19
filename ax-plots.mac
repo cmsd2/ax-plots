@@ -17,14 +17,17 @@ load("ax-plots-index.lisp")$
  * JSON builder helpers
  * ======================================================================== */
 
-/* Convert a Maxima value to a JSON-safe float string. Non-finite → "null" */
+/* Convert a Maxima value to a JSON-safe float string. Non-finite → "null".
+   Numeric constants (%pi/2, atan(3), sqrt(2)) are floated first; anything
+   that still isn't a number (free symbols, inf, und, false) → "null". */
 ax__float_to_json(v) :=
   if numberp(v) and v = v then (
     block([fv: float(v)],
       if abs(fv) = inf or fv # fv then "null"
       else string(fv))
   )
-  else "null"$
+  else block([fv: float(v)],
+    if numberp(fv) then ax__float_to_json(fv) else "null")$
 
 /* Convert a list of numbers to a JSON array string: "[1.0,2.0,3.0]" */
 ax__float_list_to_json(lst) :=
@@ -34,8 +37,16 @@ ax__float_list_to_json(lst) :=
 ax__float_matrix_to_json(mat) :=
   sconcat("[", simplode(map(ax__float_list_to_json, mat), ","), "]")$
 
-/* Wrap a string value in JSON quotes */
-ax__json_string(s) := sconcat("\"", s, "\"")$
+/* Escape backslash, double quote and newline for a JSON string body */
+ax__json_escape(s) := block([r: s],
+  r: ssubst("\\\\", "\\", r),
+  r: ssubst("\\\"", "\"", r),
+  r: ssubst("\\n", ascii(10), r),
+  r)$
+
+/* Wrap a value in JSON quotes, escaping it */
+ax__json_string(s) :=
+  sconcat("\"", ax__json_escape(if stringp(s) then s else sconcat(s)), "\"")$
 
 /* Build a JSON object from a list of [key, json_value_string] pairs */
 ax__json_obj(pairs) := block([parts],
@@ -107,7 +118,11 @@ ax__default_style() := [
   [dt, false],              /* streamline: RK4 step size (default 0.05) */
   [boxpoints, false],       /* box/violin: "all", "outliers", false (auto if false) */
   [boxmean, false],         /* box: true, "sd", or false */
-  [hole, false]             /* pie: donut hole fraction 0–1 */
+  [hole, false],            /* pie: donut hole fraction 0–1 */
+  [colorscale, false],      /* contour/heatmap/surface: Plotly colorscale name */
+  [hover_text, false],      /* string or list of strings → Plotly hovertext */
+  [hoverinfo, false],       /* e.g. "skip", "none", "x+y", "text" */
+  [showlegend, 'auto]       /* per-object only (top-level showlegend is the layout option) */
 ]$
 
 /* Get a style value from the style state */
@@ -115,28 +130,34 @@ ax__style_get(style, key) := block([pair],
   pair: assoc(key, style),
   pair)$
 
-/* Set a style value, returning new style */
-ax__style_set(style, key, val) := block([result],
+/* Set a style value, returning new style.  Keys not already present are
+   appended (previously they were silently dropped). */
+ax__style_set(style, key, val) := block([result, found: false],
   result: [],
   for p in style do (
-    if p[1] = key then result: endcons([key, val], result)
+    if p[1] = key then (result: endcons([key, val], result), found: true)
     else result: endcons(p, result)
   ),
+  if not found then result: endcons([key, val], result),
   result)$
 
 /* Layout option names */
 ax__layout_option_names : [title, xrange, yrange, zrange, grid, xaxis, yaxis,
   xlabel, ylabel, zlabel, showlegend, aspect_ratio, width, height, bar_mode,
-  plot_bgcolor, paper_bgcolor, logx, logy, logz,
+  plot_bgcolor, paper_bgcolor, logx, logy, logz, margin, constrain,
   /* animation playback options (siblings of title/xrange/...) */
   fps, transition_duration, loop, slider_label]$
 
 /* Trace/style option names */
 ax__trace_option_names : [color, fill_color, opacity, line_width, dash,
-  marker_symbol, marker_size, name, fill, colorscale, hover_text, nticks,
-  nbins, ncontours, showscale, bar_width,
+  marker_symbol, marker_size, name, fill, colorscale, hover_text, hoverinfo,
+  nticks, nbins, ncontours, showscale, bar_width,
   ngrid, arrow_scale, normalize, initial_points, t_range, dt,
   boxpoints, boxmean, hole]$
+
+/* Options accepted only inside an object, e.g. lines(xs, ys, showlegend=false).
+   At top level, showlegend is the layout option. */
+ax__object_only_option_names : [showlegend]$
 
 /* Draw object names we recognize.  `animate` is a wrapper that
    takes any other draw object and an [param, lo, hi[, n]] spec;
@@ -163,6 +184,39 @@ ax__is_draw_object(item) :=
 /* Apply a style option to the style state */
 ax__apply_option(style, item) :=
   ax__style_set(style, lhs(item), rhs(item))$
+
+/* Check if an argument inside a draw object is a per-object option */
+ax__is_object_option(item) :=
+  not atom(item) and op(item) = "=" and
+  (member(lhs(item), ax__trace_option_names) or
+   member(lhs(item), ax__object_only_option_names))$
+
+/* Split trailing per-object options off a draw object:
+   lines(xs, ys, color="red", dash="dot") → [lines(xs, ys), style with
+   color/dash applied].  Only trailing equations whose lhs is a known
+   option are taken, so implicit(x^2+y^2=1, ...) is left alone.  The
+   returned style applies to this object only; the caller's sticky style
+   is unchanged. */
+ax__split_object_options(obj, style) := block([a, k, st],
+  a: args(obj),
+  k: length(a),
+  while k > 0 and ax__is_object_option(a[k]) do k: k - 1,
+  if k = length(a) then return([obj, style]),
+  st: style,
+  for i from k + 1 thru length(a) do st: ax__apply_option(st, a[i]),
+  [funmake(op(obj), firstn(a, k)), st])$
+
+/* Check that every element of a data list is numeric after float(), or an
+   explicit gap (false, inf, minf, und, ind → null in the JSON).  Errors name
+   the object, axis and 1-based index instead of silently emitting null. */
+ax__check_numeric_data(lst, objname, axis) := block([i: 0, fv],
+  for v in lst do (
+    i: i + 1,
+    fv: float(v),
+    if not numberp(fv) and not member(v, [false, inf, minf, und, ind]) then
+      error(sconcat(objname, ": ", axis, " value #", i, " is not numeric: ", string(v)))
+  ),
+  lst)$
 
 /* ========================================================================
  * Sampling helpers
@@ -444,14 +498,25 @@ ax__build_marker_style(style) := block(
     parts: endcons(sconcat("\"symbol\":", ax__json_string(sym)), parts),
   sconcat("{", simplode(parts, ","), "}"))$
 
-/* Common trace-level style properties (opacity, name, fill) */
+/* Common trace-level style properties (opacity, name, fill, legend, hover) */
 ax__build_trace_style(style, auto_name) := block(
-  [parts, op_val, nm, fl, fc],
+  [parts, op_val, nm, fl, fc, sl, hi, ht],
   parts: [],
   op_val: ax__style_get(style, opacity),
   nm: ax__style_get(style, name),
   fl: ax__style_get(style, fill),
   fc: ax__style_get(style, fill_color),
+  sl: ax__style_get(style, showlegend),
+  hi: ax__style_get(style, hoverinfo),
+  ht: ax__style_get(style, hover_text),
+  if sl = true or sl = false then
+    parts: endcons(sconcat("\"showlegend\":", if sl then "true" else "false"), parts),
+  if hi # false then
+    parts: endcons(sconcat("\"hoverinfo\":", ax__json_string(hi)), parts),
+  if stringp(ht) then
+    parts: endcons(sconcat("\"hovertext\":", ax__json_string(ht)), parts)
+  else if listp(ht) then
+    parts: endcons(sconcat("\"hovertext\":", ax__string_list_to_json(ht)), parts),
   if op_val # false and op_val # 1.0 then
     parts: endcons(sconcat("\"opacity\":", string(float(op_val))), parts),
   if nm # false then
@@ -522,8 +587,8 @@ ax__trace_points_2d(obj, style) := block(
     )
   ),
   parts: [
-    sconcat("\"x\":", ax__float_list_to_json(xs)),
-    sconcat("\"y\":", ax__float_list_to_json(ys)),
+    sconcat("\"x\":", ax__float_list_to_json(ax__check_numeric_data(xs, "points", "x"))),
+    sconcat("\"y\":", ax__float_list_to_json(ax__check_numeric_data(ys, "points", "y"))),
     "\"type\":\"scatter\"",
     "\"mode\":\"markers\"",
     sconcat("\"marker\":", ax__build_marker_style(style))
@@ -551,8 +616,8 @@ ax__trace_lines_2d(obj, style) := block(
     )
   ),
   parts: [
-    sconcat("\"x\":", ax__float_list_to_json(xs)),
-    sconcat("\"y\":", ax__float_list_to_json(ys)),
+    sconcat("\"x\":", ax__float_list_to_json(ax__check_numeric_data(xs, "lines", "x"))),
+    sconcat("\"y\":", ax__float_list_to_json(ax__check_numeric_data(ys, "lines", "y"))),
     "\"type\":\"scatter\"",
     "\"mode\":\"lines\"",
     sconcat("\"line\":", ax__build_line_style(style))
@@ -577,9 +642,9 @@ ax__trace_lines_3d(obj, style) := block(
     zs: map(third, data)
   ),
   parts: [
-    sconcat("\"x\":", ax__float_list_to_json(xs)),
-    sconcat("\"y\":", ax__float_list_to_json(ys)),
-    sconcat("\"z\":", ax__float_list_to_json(zs)),
+    sconcat("\"x\":", ax__float_list_to_json(ax__check_numeric_data(xs, "lines", "x"))),
+    sconcat("\"y\":", ax__float_list_to_json(ax__check_numeric_data(ys, "lines", "y"))),
+    sconcat("\"z\":", ax__float_list_to_json(ax__check_numeric_data(zs, "lines", "z"))),
     "\"type\":\"scatter3d\"",
     "\"mode\":\"lines\"",
     sconcat("\"line\":", ax__build_line_style(style))
@@ -651,9 +716,9 @@ ax__trace_points_3d(obj, style) := block(
     zs: map(third, data)
   ),
   parts: [
-    sconcat("\"x\":", ax__float_list_to_json(xs)),
-    sconcat("\"y\":", ax__float_list_to_json(ys)),
-    sconcat("\"z\":", ax__float_list_to_json(zs)),
+    sconcat("\"x\":", ax__float_list_to_json(ax__check_numeric_data(xs, "points", "x"))),
+    sconcat("\"y\":", ax__float_list_to_json(ax__check_numeric_data(ys, "points", "y"))),
+    sconcat("\"z\":", ax__float_list_to_json(ax__check_numeric_data(zs, "points", "z"))),
     "\"type\":\"scatter3d\"",
     "\"mode\":\"markers\"",
     sconcat("\"marker\":", ax__build_marker_style(style))
@@ -886,7 +951,7 @@ ax__trace_heatmap_2d(obj, style) := block(
 
 /* Convert a list of strings to a JSON array: ["a","b","c"] */
 ax__string_list_to_json(lst) :=
-  sconcat("[", simplode(map(lambda([s], sconcat("\"", s, "\"")), lst), ","), "]")$
+  sconcat("[", simplode(map(ax__json_string, lst), ","), "]")$
 
 /* 2D bar trace: ax_bar(categories, values) or ax_bar(values) */
 ax__trace_bar_2d(obj, style) := block(
@@ -1234,7 +1299,9 @@ ax__trace_streamline_2d(obj, style) := block(
 
 /* Dispatch to the correct 2D trace builder based on object type.
    Returns either a single JSON string or a list of JSON strings (for multi-trace objects). */
-ax__build_trace_2d(obj, style) := block([objop],
+ax__build_trace_2d(obj_in, style_in) := block([objop, split, obj, style],
+  split: ax__split_object_options(obj_in, style_in),
+  obj: split[1], style: split[2],
   objop: op(obj),
   if objop = explicit then ax__trace_explicit_2d(obj, style)
   else if objop = parametric then ax__trace_parametric_2d(obj, style)
@@ -1254,7 +1321,9 @@ ax__build_trace_2d(obj, style) := block([objop],
   else error("ax_draw2d: unsupported object type:", objop))$
 
 /* Dispatch to the correct 3D trace builder based on object type */
-ax__build_trace_3d(obj, style) := block([objop],
+ax__build_trace_3d(obj_in, style_in) := block([objop, split, obj, style],
+  split: ax__split_object_options(obj_in, style_in),
+  obj: split[1], style: split[2],
   objop: op(obj),
   if objop = explicit then ax__trace_explicit_3d(obj, style)
   else if objop = points then ax__trace_points_3d(obj, style)
@@ -1299,8 +1368,20 @@ ax__build_layout_2d(opts) := block(
       yaxis_parts: endcons(sconcat("\"title\":{\"text\":", ax__json_string(val), "}"), yaxis_parts)
     else if key = showlegend then
       parts: endcons(sconcat("\"showlegend\":", if val then "true" else "false"), parts)
-    else if key = aspect_ratio then
-      yaxis_parts: endcons("\"scaleanchor\":\"x\",\"scaleratio\":1", yaxis_parts)
+    else if key = aspect_ratio then (
+      /* true ≡ 1; a number sets y-units per x-unit; false = off */
+      if val # false then
+        yaxis_parts: endcons(sconcat("\"scaleanchor\":\"x\",\"scaleratio\":",
+          ax__float_to_json(if val = true then 1 else val)), yaxis_parts)
+    )
+    else if key = constrain then (
+      /* "range" (Plotly default) widens a range to satisfy aspect_ratio;
+         "domain" shrinks the plot area so xrange/yrange are kept exactly */
+      xaxis_parts: endcons(sconcat("\"constrain\":", ax__json_string(val)), xaxis_parts),
+      yaxis_parts: endcons(sconcat("\"constrain\":", ax__json_string(val)), yaxis_parts)
+    )
+    else if key = margin then
+      parts: endcons(ax__margin_json(val), parts)
     else if key = width then (
       if val # 'auto then
         parts: endcons(sconcat("\"width\":", string(val)), parts)
@@ -1330,7 +1411,7 @@ ax__build_layout_2d(opts) := block(
   if not member(width, map(lhs, opts)) then
     parts: endcons("\"width\":700", parts),
   if not member(height, map(lhs, opts)) then (
-    if member(aspect_ratio, map(lhs, opts)) then
+    if ax__layout_opt_value(opts, aspect_ratio, false) # false then
       parts: endcons("\"height\":700", parts)
     else
       parts: endcons("\"height\":450", parts)
@@ -1346,6 +1427,16 @@ ax__build_layout_2d(opts) := block(
   parts: endcons(sconcat("\"xaxis\":{", simplode(xaxis_parts, ","), "}"), parts),
   parts: endcons(sconcat("\"yaxis\":{", simplode(yaxis_parts, ","), "}"), parts),
   sconcat("{", simplode(parts, ","), "}"))$
+
+/* margin=10 (all sides) or margin=[l, r, t, b] → "margin":{...} (pixels) */
+ax__margin_json(val) := block([m],
+  m: if listp(val) then val else [val, val, val, val],
+  if length(m) # 4 then
+    error("margin: expected a number or [l, r, t, b], got", val),
+  sconcat("\"margin\":{\"l\":", ax__float_to_json(m[1]),
+          ",\"r\":", ax__float_to_json(m[2]),
+          ",\"t\":", ax__float_to_json(m[3]),
+          ",\"b\":", ax__float_to_json(m[4]), "}"))$
 
 ax__build_layout_3d(opts) := block(
   [parts, scene_parts, xaxis_parts, yaxis_parts, zaxis_parts],
@@ -1372,6 +1463,8 @@ ax__build_layout_3d(opts) := block(
       zaxis_parts: endcons(sconcat("\"title\":{\"text\":", ax__json_string(val), "}"), zaxis_parts)
     else if key = showlegend then
       parts: endcons(sconcat("\"showlegend\":", if val then "true" else "false"), parts)
+    else if key = margin then
+      parts: endcons(ax__margin_json(val), parts)
     else if key = width then (
       if val # 'auto then
         parts: endcons(sconcat("\"width\":", string(val)), parts)
@@ -1882,7 +1975,7 @@ ax__draw2d_impl(ax__args_in, reuse_view_id) := block(
     else if ax__is_trace_option(item) then
       style: ax__apply_option(style, item)
     else if ax__is_animate(item) then
-      block([spec, inner, p_lo, raw0, traces0, start_idx, count],
+      block([spec, split, inner, ostyle, p_lo, raw0, traces0, start_idx, count],
         if has_signals then
           error("ax_draw2d: animate(...) and signal(...) in the same call",
                 " is not supported in v0"),
@@ -1900,13 +1993,17 @@ ax__draw2d_impl(ax__args_in, reuse_view_id) := block(
           if spec[3] # anim_lo or spec[4] # anim_hi or spec[5] # anim_n then
             error("ax_draw2d: all animate(...) wrappers must share the same [lo, hi, n]")
         ),
-        inner: spec[1],
+        /* split per-object options here so the stored spec is a plain
+           explicit(...) the compile_grid fast path recognises */
+        split:   ax__split_object_options(spec[1], style),
+        inner:   split[1],
+        ostyle:  split[2],
         p_lo:    float(anim_lo),
-        raw0:    ax__build_trace_2d(subst(p_lo, anim_param, inner), style),
+        raw0:    ax__build_trace_2d(subst(p_lo, anim_param, inner), ostyle),
         traces0: if listp(raw0) then raw0 else [raw0],
         start_idx: length(traces),
         count:     length(traces0),
-        animate_specs: endcons([inner, style, start_idx, count], animate_specs),
+        animate_specs: endcons([inner, ostyle, start_idx, count], animate_specs),
         traces: append(traces, traces0)
       )
     else if ax__is_draw_object(item) then
@@ -1978,7 +2075,7 @@ ax__draw3d_impl(ax__args_in, reuse_view_id) := block(
     else if ax__is_trace_option(item) then
       style: ax__apply_option(style, item)
     else if ax__is_animate(item) then
-      block([spec, inner, p_lo, raw0, traces0, start_idx, count],
+      block([spec, split, inner, ostyle, p_lo, raw0, traces0, start_idx, count],
         if has_signals then
           error("ax_draw3d: animate(...) and signal(...) in the same call",
                 " is not supported in v0"),
@@ -1996,13 +2093,15 @@ ax__draw3d_impl(ax__args_in, reuse_view_id) := block(
           if spec[3] # anim_lo or spec[4] # anim_hi or spec[5] # anim_n then
             error("ax_draw3d: all animate(...) wrappers must share the same [lo, hi, n]")
         ),
-        inner: spec[1],
+        split:   ax__split_object_options(spec[1], style),
+        inner:   split[1],
+        ostyle:  split[2],
         p_lo:    float(anim_lo),
-        raw0:    ax__build_trace_3d(subst(p_lo, anim_param, inner), style),
+        raw0:    ax__build_trace_3d(subst(p_lo, anim_param, inner), ostyle),
         traces0: if listp(raw0) then raw0 else [raw0],
         start_idx: length(traces),
         count:     length(traces0),
-        animate_specs: endcons([inner, style, start_idx, count], animate_specs),
+        animate_specs: endcons([inner, ostyle, start_idx, count], animate_specs),
         traces: append(traces, traces0)
       )
     else if ax__is_draw_object(item) then
@@ -2127,6 +2226,8 @@ ax__build_layout_polar(opts) := block(
       parts: endcons(sconcat("\"title\":{\"text\":", ax__json_string(val), "}"), parts)
     else if key = showlegend then
       parts: endcons(sconcat("\"showlegend\":", if val then "true" else "false"), parts)
+    else if key = margin then
+      parts: endcons(ax__margin_json(val), parts)
     else if key = width then (
       if val # 'auto then
         parts: endcons(sconcat("\"width\":", string(val)), parts)

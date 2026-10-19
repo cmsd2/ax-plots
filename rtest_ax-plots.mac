@@ -21,6 +21,111 @@ ax__json_string("hello");
 listp(ax__default_style());
 true;
 
+/* --- numeric coercion --------------------------------------------------- */
+
+/* numeric constants are floated instead of becoming null */
+is(ax__float_to_json(%pi/2) = string(float(%pi/2)));
+true;
+
+is(ax__float_list_to_json([0, atan(3)]) = sconcat("[0.0,", string(float(atan(3))), "]"));
+true;
+
+/* free symbols and explicit gaps still serialise as null */
+ax__float_to_json(a*x);
+"null";
+
+ax__float_to_json(false);
+"null";
+
+/* layout ranges with %pi no longer become [null,null] */
+ssearch("null", ax__build_layout_2d([xrange=[-%pi, %pi]]));
+false;
+
+/* lines/points accept numeric constants */
+ssearch("null", ax__trace_lines_2d(lines([0, %pi/2], [0, atan(3)]), ax__default_style()));
+false;
+
+/* ...and reject non-numeric data loudly */
+errcatch(ax__trace_lines_2d(lines([0, 1], [0, a]), ax__default_style()));
+[];
+
+errcatch(ax__trace_points_2d(points([[0, 1], [b, 2]]), ax__default_style()));
+[];
+
+/* false is an explicit gap */
+numberp(ssearch("null", ax__trace_lines_2d(lines([1, 2, 3], [1, false, 3]), ax__default_style())));
+true;
+
+/* --- style state -------------------------------------------------------- */
+
+/* options missing from the defaults are kept, not silently dropped */
+ax__style_get(ax__apply_option(ax__default_style(), some_new_key = 1), some_new_key);
+1;
+
+ax__style_get(ax__apply_option(ax__default_style(), colorscale = "Viridis"), colorscale);
+"Viridis";
+
+/* --- per-object options ------------------------------------------------- */
+
+ax__split_object_options(lines([1, 2], [3, 4], color = "red", dash = "dot"), ax__default_style())[1];
+lines([1, 2], [3, 4]);
+
+ax__style_get(ax__split_object_options(lines([1, 2], [3, 4], color = "red"), ax__default_style())[2], color);
+"red";
+
+/* an implicit equation is a positional argument, not an option */
+ax__split_object_options(implicit(x^2 + y^2 = 1, x, -1, 1, y, -1, 1), ax__default_style())[1];
+implicit(x^2 + y^2 = 1, x, -1, 1, y, -1, 1);
+
+numberp(ssearch("\"color\":\"red\"", ax__build_trace_2d(lines([1, 2], [3, 4], color = red), ax__default_style())));
+true;
+
+numberp(ssearch("\"showlegend\":false", ax__build_trace_2d(lines([1, 2], [3, 4], showlegend = false), ax__default_style())));
+true;
+
+/* no showlegend key unless asked for */
+ssearch("showlegend", ax__build_trace_2d(lines([1, 2], [3, 4]), ax__default_style()));
+false;
+
+numberp(ssearch("\"hoverinfo\":\"skip\"", ax__build_trace_2d(lines([1, 2], [3, 4], hoverinfo = "skip"), ax__default_style())));
+true;
+
+numberp(ssearch("\"hovertext\":[\"a\",\"b\"]", ax__build_trace_2d(points([1, 2], [3, 4], hover_text = ["a", "b"]), ax__default_style())));
+true;
+
+/* --- JSON string escaping ----------------------------------------------- */
+
+/* a"b → a\"b ; a\b → a\\b */
+slength(ax__json_escape("a\"b"));
+4;
+
+slength(ax__json_escape("a\\b"));
+4;
+
+/* --- layout options ----------------------------------------------------- */
+
+numberp(ssearch("\"margin\":{\"l\":10.0,\"r\":10.0,\"t\":10.0,\"b\":10.0}", ax__build_layout_2d([margin = 10])));
+true;
+
+numberp(ssearch("\"margin\":{\"l\":1.0,\"r\":2.0,\"t\":3.0,\"b\":4.0}", ax__build_layout_2d([margin = [1, 2, 3, 4]])));
+true;
+
+errcatch(ax__build_layout_2d([margin = [1, 2]]));
+[];
+
+/* aspect_ratio=false no longer locks the aspect */
+ssearch("scaleanchor", ax__build_layout_2d([aspect_ratio = false]));
+false;
+
+numberp(ssearch("\"scaleratio\":1.0", ax__build_layout_2d([aspect_ratio = true])));
+true;
+
+numberp(ssearch("\"scaleratio\":2.0", ax__build_layout_2d([aspect_ratio = 2])));
+true;
+
+numberp(ssearch("\"constrain\":\"domain\"", ax__build_layout_2d([constrain = "domain"])));
+true;
+
 /* --- animate() wrapper -------------------------------------------------- */
 
 /* detection */

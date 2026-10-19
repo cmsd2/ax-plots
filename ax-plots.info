@@ -1,4 +1,4 @@
-This is ax-plots.info, produced by makeinfo version 7.1 from
+This is ax-plots.info, produced by makeinfo version 7.3 from
 ax-plots.texi.
 
 
@@ -84,12 +84,15 @@ File: ax-plots.info,  Node: Function ax_plot2d y1 x1 y2 x2 ... options,  Up: 2D 
      * Style Options::
      * Layout Options::
      * Supported Objects::
-     * Examples::
-     * Style Options::
-     * Layout Options::
-     * Examples::
-     * Style Options::
-     * Layout Options::
+     * Examples: Examples 2.
+     * Data Values::
+     * Per-object Options::
+     * Programmatic Use::
+     * Style Options: Style Options 2.
+     * Layout Options: Layout Options 2.
+     * Examples: Examples 3.
+     * Style Options: Style Options 3.
+     * Layout Options: Layout Options 3.
 
 
 File: ax-plots.info,  Node: Examples,  Up: 2D Plotting
@@ -131,6 +134,15 @@ ax_plot2d(x^2, [x, -3, 3], title="Parabola", color="red")$
 * Style Options::
 * Layout Options::
 * Supported Objects::
+* Examples 2::
+* Data Values::
+* Per-object Options::
+* Programmatic Use::
+* Style Options 2::
+* Layout Options 2::
+* Examples 3::
+* Style Options 3::
+* Layout Options 3::
 
 
 File: ax-plots.info,  Node: Style Options,  Next: Layout Options,  Up: Examples
@@ -180,7 +192,7 @@ objects and Aximar-specific objects, rendering them as interactive
 charts with pan, zoom, and hover.
 
 
-File: ax-plots.info,  Node: Supported Objects,  Next: ,  Prev: Layout Options,  Up: Examples
+File: ax-plots.info,  Node: Supported Objects,  Next: Examples 2,  Prev: Layout Options,  Up: Examples
 
 1.2.1.3 Supported Objects
 .........................
@@ -225,6 +237,9 @@ Object               Syntax               Description
 ‘ax_streamline’      ‘ax_streamline(Fx,   Streamline / phase portrait
                      Fy, x, xlo, xhi,     curves
                      y, ylo, yhi)’
+
+
+File: ax-plots.info,  Node: Examples 2,  Next: Data Values,  Prev: Supported Objects,  Up: Examples
 
 1.2.1.4 Examples
 ................
@@ -284,11 +299,60 @@ ax_draw2d(
   aspect_ratio=true
 )$
 
-1.2.1.5 Style Options
+
+File: ax-plots.info,  Node: Data Values,  Next: Per-object Options,  Prev: Examples 2,  Up: Examples
+
+1.2.1.5 Data Values
+...................
+
+‘lines’ and ‘points’ data may contain exact numeric constants such as
+‘%pi/2’, ‘sqrt(2)’ or ‘atan(3)’; they are converted with ‘float’.  A
+value that is still not a number (for example a free symbol ‘a’) is an
+error naming the object, axis and index.  Use ‘false’ (or ‘inf’, ‘minf’,
+‘und’, ‘ind’) for an intentional gap in a line.  Numeric constants are
+also accepted in ‘xrange’ / ‘yrange’, e.g. ‘xrange=[-%pi, %pi]’.
+
+
+File: ax-plots.info,  Node: Per-object Options,  Next: Programmatic Use,  Prev: Data Values,  Up: Examples
+
+1.2.1.6 Per-object Options
+..........................
+
+Style options can be given as trailing arguments inside an object.  They
+apply to that object only and do not change the options in effect for
+later objects:
+
+ax_draw2d(
+  color="blue",
+  lines([0, 1, 2], [0, 1, 0], color="red", dash="dot", showlegend=false),
+  lines([0, 1, 2], [1, 0, 1])          /* still blue */
+)$
+
+‘showlegend’ inside an object hides (or shows) that trace's legend
+entry; at the top level ‘showlegend’ is the layout option for the whole
+legend.
+
+
+File: ax-plots.info,  Node: Programmatic Use,  Next: Style Options 2,  Prev: Per-object Options,  Up: Examples
+
+1.2.1.7 Programmatic Use
+........................
+
+To build a figure in a loop, collect objects and options in a list and
+pass it with ‘apply’:
+
+objs: makelist(lines([0, 1], [0, k], color="gray", hoverinfo="skip"), k, 1, 5)$
+apply(ax_draw2d, append(objs, [title="Fan", aspect_ratio=true]))$
+
+
+File: ax-plots.info,  Node: Style Options 2,  Next: Layout Options 2,  Prev: Programmatic Use,  Up: Examples
+
+1.2.1.8 Style Options
 .....................
 
 Options use Plotly-native naming and apply to subsequent objects until
-overridden:
+overridden (or to a single object when given inside it, see Per-object
+Options):
 
 Option              Default                Description
 ---------------------------------------------------------------------------
@@ -305,6 +369,15 @@ Option              Default                Description
 ‘name’              auto                   Legend entry
 ‘fill’              none                   Fill region: ‘"tozeroy"’,
                                            ‘"toself"’, etc.
+‘hover_text’        none                   Hover text: a string, or a
+                                           list with one string per
+                                           point
+‘hoverinfo’         auto                   Hover content, e.g. ‘"skip"’
+                                           (no hover, for decorations),
+                                           ‘"none"’, ‘"x+y"’, ‘"text"’
+‘showlegend’        auto                   Per-object only: ‘false’
+                                           hides this trace's legend
+                                           entry
 ‘colorscale’        none                   Color scale for
                                            contour/heatmap
                                            (e.g. ‘"Viridis"’, ‘"Hot"’)
@@ -329,7 +402,10 @@ Option              Default                Description
                                            tf]’ (ax_streamline)
 ‘dt’                0.05                   RK4 step size (ax_streamline)
 
-1.2.1.6 Layout Options
+
+File: ax-plots.info,  Node: Layout Options 2,  Next: Examples 3,  Prev: Style Options 2,  Up: Examples
+
+1.2.1.9 Layout Options
 ......................
 
 Option                      Description
@@ -340,9 +416,18 @@ Option                      Description
 ‘grid’                      Show grid lines
 ‘xaxis’ / ‘yaxis’           Show/hide axes
 ‘showlegend’                Show legend
-‘aspect_ratio’              Lock aspect ratio
-‘width’                     Fixed plot width in pixels
-‘height’                    Fixed plot height in pixels
+‘aspect_ratio’              Lock aspect ratio: ‘true’ (1:1), a number
+                            (y units per x unit), or ‘false’ (off)
+‘constrain’                 How ‘aspect_ratio’ is met: ‘"range"’
+                            (Plotly default, widens a range) or
+                            ‘"domain"’ (shrinks the plot area, keeps
+                            ‘xrange’/‘yrange’ exactly)
+‘margin’                    Plot margins in pixels: a number for all
+                            sides, or ‘[l, r, t, b]’
+‘width’                     Fixed plot width in pixels (‘auto’ to size
+                            to the container)
+‘height’                    Fixed plot height in pixels (‘auto’ to size
+                            to the container)
 ‘bar_mode’                  Bar/histogram grouping: ‘"group"’,
                             ‘"stack"’, ‘"overlay"’
 ‘logx’ / ‘logy’             Log-scale axes (‘true’/‘false’)
@@ -363,8 +448,11 @@ Calling forms:
    • ‘ax_polar([expr_1, ..., expr_n], [θ, min, max], options)’ --
      multiple expressions
 
-1.2.1.7 Examples
-................
+
+File: ax-plots.info,  Node: Examples 3,  Next: Style Options 3,  Prev: Layout Options 2,  Up: Examples
+
+1.2.1.10 Examples
+.................
 
 /* Cardioid */
 ax_polar(1 + cos(θ), [θ, 0, 2*%pi])$
@@ -382,8 +470,11 @@ ax_polar(
 /* Spiral */
 ax_polar(θ/10, [θ, 0, 6*%pi], title="Archimedean Spiral")$
 
-1.2.1.8 Style Options
-.....................
+
+File: ax-plots.info,  Node: Style Options 3,  Next: Layout Options 3,  Prev: Examples 3,  Up: Examples
+
+1.2.1.11 Style Options
+......................
 
 Option              Default                Description
 ---------------------------------------------------------------------------
@@ -396,8 +487,11 @@ Option              Default                Description
 ‘opacity’           1.0                    Trace opacity
 ‘nticks’            500                    Sampling resolution
 
-1.2.1.9 Layout Options
-......................
+
+File: ax-plots.info,  Node: Layout Options 3,  Prev: Style Options 3,  Up: Examples
+
+1.2.1.12 Layout Options
+.......................
 
 Option            Description
 ----------------------------------------------------------------------
@@ -430,9 +524,9 @@ File: ax-plots.info,  Node: Function ax_draw3d [args],  Up: 3D Plotting
 * Menu:
 
      * Supported Draw Objects::
-     * Examples::
-     * Style Options::
-     * Layout Options::
+     * Examples: Examples 4.
+     * Style Options: Style Options 4.
+     * Layout Options: Layout Options 4.
 
 
 File: ax-plots.info,  Node: Supported Draw Objects,  Up: 3D Plotting
@@ -453,6 +547,13 @@ Object               Syntax               Description
                      zs)’
 
 * Menu:
+
+* Examples 4::
+* Style Options 4::
+* Layout Options 4::
+
+
+File: ax-plots.info,  Node: Examples 4,  Next: Style Options 4,  Up: Supported Draw Objects
 
 1.3.1.1 Examples
 ................
@@ -480,6 +581,9 @@ ax_draw3d(
   colorscale="Viridis"
 )$
 
+
+File: ax-plots.info,  Node: Style Options 4,  Next: Layout Options 4,  Prev: Examples 4,  Up: Supported Draw Objects
+
 1.3.1.2 Style Options
 .....................
 
@@ -492,6 +596,9 @@ Option            Default      Description
 ‘marker_symbol’   ‘"circle"’   Marker shape
 ‘name’            auto         Legend entry
 ‘nticks’          50           Grid resolution (nticks x nticks)
+
+
+File: ax-plots.info,  Node: Layout Options 4,  Prev: Style Options 4,  Up: Supported Draw Objects
 
 1.3.1.3 Layout Options
 ......................
@@ -541,14 +648,17 @@ File: ax-plots.info,  Node: Function ax_bar categories values,  Up: Statistical 
 
 * Menu:
 
-     * Examples::
+     * Examples: Examples 5.
      * Relevant Options::
-     * Layout Options::
-     * Examples::
-     * Relevant Options::
-     * Layout Options::
-     * Examples::
-     * Relevant Options::
+     * Layout Options: Layout Options 5.
+     * Examples: Examples 6.
+     * Relevant Options: Relevant Options 2.
+     * Layout Options: Layout Options 6.
+     * Examples: Examples 7.
+     * Relevant Options: Relevant Options 3.
+
+
+File: ax-plots.info,  Node: Examples 5,  Up: Statistical Charts
 
 1.4.1 Examples
 --------------
@@ -582,9 +692,15 @@ ax_draw2d(
 * Menu:
 
 * Relevant Options::
+* Layout Options 5::
+* Examples 6::
+* Relevant Options 2::
+* Layout Options 6::
+* Examples 7::
+* Relevant Options 3::
 
 
-File: ax-plots.info,  Node: Relevant Options,  Next: ,  Up: 
+File: ax-plots.info,  Node: Relevant Options,  Next: Layout Options 5,  Up: Examples 5
 
 1.4.1.1 Relevant Options
 ........................
@@ -595,6 +711,9 @@ Option        Default   Description
 ‘bar_width’   auto      Bar width (0-1 fraction)
 ‘name’        auto      Legend entry / series name
 ‘opacity’     1.0       Bar opacity
+
+
+File: ax-plots.info,  Node: Layout Options 5,  Next: Examples 6,  Prev: Relevant Options,  Up: Examples 5
 
 1.4.1.2 Layout Options
 ......................
@@ -609,6 +728,9 @@ See also: ‘ax_draw2d’, ‘ax_histogram’ ### Function: ax_histogram (data)
 
 Histogram of numeric data.  Use inside ‘ax_draw2d’.  Takes a flat list
 of numbers; Plotly handles binning automatically.
+
+
+File: ax-plots.info,  Node: Examples 6,  Next: Relevant Options 2,  Prev: Layout Options 5,  Up: Examples 5
 
 1.4.1.3 Examples
 ................
@@ -629,6 +751,9 @@ ax_draw2d(
   bar_mode="overlay", title="Comparing Distributions"
 )$
 
+
+File: ax-plots.info,  Node: Relevant Options 2,  Next: Layout Options 6,  Prev: Examples 6,  Up: Examples 5
+
 1.4.1.4 Relevant Options
 ........................
 
@@ -638,6 +763,9 @@ Option      Default   Description
 ‘color’     auto      Bar fill color
 ‘name’      auto      Legend entry
 ‘opacity’   1.0       Bar opacity
+
+
+File: ax-plots.info,  Node: Layout Options 6,  Next: Examples 7,  Prev: Relevant Options 2,  Up: Examples 5
 
 1.4.1.5 Layout Options
 ......................
@@ -660,6 +788,9 @@ Calling forms:
    • ‘ax_heatmap(expr, xvar, xlo, xhi, yvar, ylo, yhi)’ -- symbolic
      expression sampled on a grid
 
+
+File: ax-plots.info,  Node: Examples 7,  Next: Relevant Options 3,  Prev: Layout Options 6,  Up: Examples 5
+
 1.4.1.6 Examples
 ................
 
@@ -678,6 +809,9 @@ ax_draw2d(
   ax_heatmap(sin(x)*cos(y), x, -%pi, %pi, y, -%pi, %pi),
   colorscale="Hot"
 )$
+
+
+File: ax-plots.info,  Node: Relevant Options 3,  Prev: Examples 7,  Up: Examples 5
 
 1.4.1.7 Relevant Options
 ........................
@@ -717,12 +851,15 @@ File: ax-plots.info,  Node: Function ax_contour expr xvar xlo xhi yvar ylo yhi, 
 
 * Menu:
 
-     * Examples::
-     * Relevant Options::
-     * Examples::
-     * Relevant Options::
-     * Examples::
-     * Relevant Options::
+     * Examples: Examples 8.
+     * Relevant Options: Relevant Options 4.
+     * Examples: Examples 9.
+     * Relevant Options: Relevant Options 5.
+     * Examples: Examples 10.
+     * Relevant Options: Relevant Options 6.
+
+
+File: ax-plots.info,  Node: Examples 8,  Up: Field Plots
 
 1.5.1 Examples
 --------------
@@ -745,6 +882,15 @@ ax_draw2d(
 
 * Menu:
 
+* Relevant Options 4::
+* Examples 9::
+* Relevant Options 5::
+* Examples 10::
+* Relevant Options 6::
+
+
+File: ax-plots.info,  Node: Relevant Options 4,  Next: Examples 9,  Up: Examples 8
+
 1.5.1.1 Relevant Options
 ........................
 
@@ -764,6 +910,9 @@ ax_vector_field (Fx, Fy, xvar, xlo, xhi, yvar, ylo, yhi)
 2D vector field (quiver) plot.  Use inside ‘ax_draw2d’.  Given a vector
 field F = (Fx(x,y), Fy(x,y)), samples on a grid and renders arrows
 showing the field direction and magnitude.
+
+
+File: ax-plots.info,  Node: Examples 9,  Next: Relevant Options 5,  Prev: Relevant Options 4,  Up: Examples 8
 
 1.5.1.2 Examples
 ................
@@ -789,6 +938,9 @@ ax_draw2d(
   color="red", ax_streamline(-y, x, x, -3, 3, y, -3, 3),
   aspect_ratio=true, title="Phase Portrait"
 )$
+
+
+File: ax-plots.info,  Node: Relevant Options 5,  Next: Examples 10,  Prev: Examples 9,  Up: Examples 8
 
 1.5.1.3 Relevant Options
 ........................
@@ -817,6 +969,9 @@ ax_draw2d(
   aspect_ratio=true, title="Phase Portrait"
 )$
 
+
+File: ax-plots.info,  Node: Examples 10,  Next: Relevant Options 6,  Prev: Relevant Options 5,  Up: Examples 8
+
 1.5.1.4 Examples
 ................
 
@@ -830,6 +985,9 @@ ax_draw2d(
   ax_streamline(x*(1-y), y*(x-1), x, 0, 4, y, 0, 4),
   title="Lotka-Volterra"
 )$
+
+
+File: ax-plots.info,  Node: Relevant Options 6,  Prev: Examples 10,  Up: Examples 8
 
 1.5.1.5 Relevant Options
 ........................
@@ -864,65 +1022,51 @@ Appendix A Function and variable index
 * ax_plot2d:                             Function ax_plot2d y1 x1 y2 x2 ... options.
                                                                 (line 3)
 
-
 
 Tag Table:
 Node: Top77
 Node: Package ax-plots189
-Ref: #package-ax-plots334
 Node: Introduction to ax-plots444
-Ref: #introduction-to-ax-plots602
 Node: 2D Plotting1011
-Ref: #d-plotting1163
 Node: Function ax_plot2d y1 x1 y2 x2 ... options1220
-Ref: #function-ax_plot2d-y1-x1-y2-x2-options1367
-Node: Examples2524
-Ref: #examples2613
-Node: Style Options3430
-Ref: #style-options3558
-Node: Layout Options4368
-Ref: #layout-options4524
-Node: Supported Objects5595
-Ref: #supported-objects5744
-Ref: #examples-17536
-Ref: #style-options-18930
-Ref: #layout-options-111605
-Ref: #examples-213066
-Ref: #style-options-213433
-Ref: #layout-options-214133
-Node: 3D Plotting14619
-Ref: #d-plotting-114765
-Node: Function ax_draw3d [args]14805
-Ref: #function-ax_draw3d-args14913
-Node: Supported Draw Objects15135
-Ref: #supported-draw-objects15266
-Ref: #examples-315865
-Ref: #style-options-316509
-Ref: #layout-options-317102
-Node: Statistical Charts17950
-Ref: #statistical-charts18110
-Node: Function ax_bar categories values18158
-Ref: #function-ax_bar-categories-values18290
-Ref: #examples-418883
-Node: Relevant Options19523
-Ref: #relevant-options19638
-Ref: #layout-options-419967
-Ref: #examples-520510
-Ref: #relevant-options-121074
-Ref: #layout-options-521355
-Ref: #examples-622131
-Ref: #relevant-options-222548
-Node: Field Plots23199
-Ref: #field-plots23325
-Node: Function ax_contour expr xvar xlo xhi yvar ylo yhi23390
-Ref: #function-ax_contour-expr-xvar-xlo-xhi-yvar-ylo-yhi23554
-Ref: #examples-723995
-Ref: #relevant-options-324401
-Ref: #examples-825376
-Ref: #relevant-options-425956
-Ref: #examples-926955
-Ref: #relevant-options-527291
-Node: Function and variable index27810
+Node: Examples2687
+Node: Style Options3765
+Node: Layout Options4703
+Node: Supported Objects5930
+Node: Examples 27846
+Node: Data Values9333
+Node: Per-object Options9958
+Node: Programmatic Use10599
+Node: Style Options 211009
+Node: Layout Options 214483
+Node: Examples 316700
+Node: Style Options 317165
+Node: Layout Options 317971
+Node: 3D Plotting18593
+Node: Function ax_draw3d [args]18779
+Node: Supported Draw Objects19153
+Node: Examples 419905
+Node: Style Options 420634
+Node: Layout Options 421345
+Node: Statistical Charts22341
+Node: Function ax_bar categories values22549
+Node: Examples 523348
+Node: Relevant Options24204
+Node: Layout Options 524627
+Node: Examples 625291
+Node: Relevant Options 225950
+Node: Layout Options 626346
+Node: Examples 727245
+Node: Relevant Options 327757
+Node: Field Plots28545
+Node: Function ax_contour expr xvar xlo xhi yvar ylo yhi28736
+Node: Examples 829401
+Node: Relevant Options 429948
+Node: Examples 931025
+Node: Relevant Options 531702
+Node: Examples 1032823
+Node: Relevant Options 633257
+Node: Function and variable index33914
 
 End Tag Table
 

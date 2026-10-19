@@ -84,9 +84,45 @@ ax_draw2d(
 )$
 ```
 
+#### Data Values
+
+`lines` and `points` data may contain exact numeric constants such as
+`%pi/2`, `sqrt(2)` or `atan(3)`; they are converted with `float`.  A value
+that is still not a number (for example a free symbol `a`) is an error naming
+the object, axis and index.  Use `false` (or `inf`, `minf`, `und`, `ind`) for
+an intentional gap in a line.  Numeric constants are also accepted in
+`xrange` / `yrange`, e.g. `xrange=[-%pi, %pi]`.
+
+#### Per-object Options
+
+Style options can be given as trailing arguments inside an object.  They apply
+to that object only and do not change the options in effect for later objects:
+
+```maxima
+ax_draw2d(
+  color="blue",
+  lines([0, 1, 2], [0, 1, 0], color="red", dash="dot", showlegend=false),
+  lines([0, 1, 2], [1, 0, 1])          /* still blue */
+)$
+```
+
+`showlegend` inside an object hides (or shows) that trace's legend entry; at
+the top level `showlegend` is the layout option for the whole legend.
+
+#### Programmatic Use
+
+To build a figure in a loop, collect objects and options in a list and pass
+it with `apply`:
+
+```maxima
+objs: makelist(lines([0, 1], [0, k], color="gray", hoverinfo="skip"), k, 1, 5)$
+apply(ax_draw2d, append(objs, [title="Fan", aspect_ratio=true]))$
+```
+
 #### Style Options
 
-Options use Plotly-native naming and apply to subsequent objects until overridden:
+Options use Plotly-native naming and apply to subsequent objects until overridden
+(or to a single object when given inside it, see Per-object Options):
 
 | Option | Default | Description |
 |--------|---------|-------------|
@@ -99,6 +135,9 @@ Options use Plotly-native naming and apply to subsequent objects until overridde
 | `marker_size` | 6 | Marker size |
 | `name` | auto | Legend entry |
 | `fill` | none | Fill region: `"tozeroy"`, `"toself"`, etc. |
+| `hover_text` | none | Hover text: a string, or a list with one string per point |
+| `hoverinfo` | auto | Hover content, e.g. `"skip"` (no hover, for decorations), `"none"`, `"x+y"`, `"text"` |
+| `showlegend` | auto | Per-object only: `false` hides this trace's legend entry |
 | `colorscale` | none | Color scale for contour/heatmap (e.g. `"Viridis"`, `"Hot"`) |
 | `showscale` | auto | Show/hide colorbar for contour/heatmap |
 | `ncontours` | auto | Number of contour levels (ax_contour) |
@@ -122,9 +161,11 @@ Options use Plotly-native naming and apply to subsequent objects until overridde
 | `grid` | Show grid lines |
 | `xaxis` / `yaxis` | Show/hide axes |
 | `showlegend` | Show legend |
-| `aspect_ratio` | Lock aspect ratio |
-| `width` | Fixed plot width in pixels |
-| `height` | Fixed plot height in pixels |
+| `aspect_ratio` | Lock aspect ratio: `true` (1:1), a number (y units per x unit), or `false` (off) |
+| `constrain` | How `aspect_ratio` is met: `"range"` (Plotly default, widens a range) or `"domain"` (shrinks the plot area, keeps `xrange`/`yrange` exactly) |
+| `margin` | Plot margins in pixels: a number for all sides, or `[l, r, t, b]` |
+| `width` | Fixed plot width in pixels (`auto` to size to the container) |
+| `height` | Fixed plot height in pixels (`auto` to size to the container) |
 | `bar_mode` | Bar/histogram grouping: `"group"`, `"stack"`, `"overlay"` |
 | `logx` / `logy` | Log-scale axes (`true`/`false`) |
 | `plot_bgcolor` | Plot-area background color (default `"white"`) |
