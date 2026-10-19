@@ -133,7 +133,12 @@ ax__default_style() := [
   [head_size, false],       /* vector: arrowhead scale relative to line width (Plotly arrowsize) */
   [head_style, false],      /* vector: arrowhead shape 0–8 (Plotly arrowhead) */
   [head_both, false],       /* vector: heads at both ends (draw-compatible) */
-  [transparent, false]      /* polygon: true = outline only, no fill (draw-compatible) */
+  [transparent, false],     /* polygon: true = outline only, no fill (draw-compatible) */
+  [head_end, false],        /* lines/explicit/parametric: arrowhead at the last point */
+  [head_start, false],      /* ...: arrowhead at the first point, pointing backwards */
+  [head_count, 0],          /* ...: arrowheads evenly spaced (by arc length) along the curve */
+  [filled_func, false],     /* explicit: true = fill to y=0; g(x) = fill between f and g (draw-compatible) */
+  [legendgroup, false]      /* traces sharing a group toggle together in the legend */
 ]$
 
 /* Get a style value from the style state */
@@ -156,6 +161,9 @@ ax__style_set(style, key, val) := block([result, found: false],
 ax__layout_option_names : [title, xrange, yrange, zrange, grid, xaxis, yaxis,
   xlabel, ylabel, zlabel, showlegend, aspect_ratio, width, height, bar_mode,
   plot_bgcolor, paper_bgcolor, logx, logy, logz, margin, constrain,
+  autosize, legend_position, legend_orientation, layout_raw,
+  xtickvals, ytickvals, xticktext, yticktext, xtickformat, ytickformat,
+  xreversed, yreversed, xzeroline, yzeroline,
   /* animation playback options (siblings of title/xrange/...) */
   fps, transition_duration, loop, slider_label]$
 
@@ -171,7 +179,10 @@ ax__trace_option_names : [color, fill_color, opacity, line_width, dash,
   /* vector */
   head_size, head_style, head_both,
   /* polygon */
-  transparent]$
+  transparent,
+  /* curves: arrowheads, fill between */
+  head_end, head_start, head_count, filled_func,
+  legendgroup]$
 
 /* Options accepted only inside an object, e.g. lines(xs, ys, showlegend=false).
    At top level, showlegend is the layout option. */
@@ -181,7 +192,7 @@ ax__object_only_option_names : [showlegend]$
    takes any other draw object and an [param, lo, hi[, n]] spec;
    it is unwrapped during the scan-pass of ax_draw2d / ax_draw3d. */
 ax__draw_object_names : [explicit, parametric, points, lines, implicit,
-  label, vector, polygon,
+  label, vector, polygon, ax_trace,
   ax_contour, ax_heatmap, ax_bar, ax_histogram,
   ax_vector_field, ax_streamline,
   parametric_surface, ax_contour3d, ax_vector_field3d,
@@ -528,6 +539,9 @@ ax__build_trace_style(style, auto_name) := block(
   sl: ax__style_get(style, showlegend),
   hi: ax__style_get(style, hoverinfo),
   ht: ax__style_get(style, hover_text),
+  if ax__style_get(style, legendgroup) # false then
+    parts: endcons(sconcat("\"legendgroup\":",
+      ax__json_string(ax__style_get(style, legendgroup))), parts),
   if sl = true or sl = false then
     parts: endcons(sconcat("\"showlegend\":", if sl then "true" else "false"), parts),
   if hi # false then
@@ -550,40 +564,56 @@ ax__build_trace_style(style, auto_name) := block(
 
 /* 2D explicit trace: explicit(expr, var, lo, hi) → scatter line */
 ax__trace_explicit_2d(obj, style) := block(
-  [a, expr, var, lo, hi, n, data, xs, ys, parts],
+  [a, expr, var, lo, hi, n, data, xs, ys, parts, heads, ff, gtrace],
   a: args(obj),
   expr: a[1], var: a[2], lo: a[3], hi: a[4],
   n: ax__style_get(style, nticks),
   if n = false then n: 500,
   data: ax__sample_1d(expr, var, lo, hi, n),
   xs: data[1], ys: data[2],
+  /* filled_func (draw-compatible): true fills to y = 0; an expression g
+     fills between f and g via an invisible g trace + fill "tonexty" */
+  ff: ax__style_get(style, filled_func),
+  gtrace: false,
+  if ff = true then
+    style: ax__style_set(style, fill, "tozeroy")
+  else if ff # false then (
+    gtrace: sconcat("{\"x\":", ax__float_list_to_json(xs),
+      ",\"y\":", ax__float_list_to_json(ax__sample_1d(ff, var, lo, hi, n)[2]),
+      ",\"type\":\"scatter\",\"mode\":\"lines\",\"line\":{\"width\":0}",
+      ",\"showlegend\":false,\"hoverinfo\":\"skip\"}"),
+    style: ax__style_set(style, fill, "tonexty")
+  ),
+  heads: ax__curve_heads(xs, ys, style),
   parts: [
-    sconcat("\"x\":", ax__float_list_to_json(xs)),
-    sconcat("\"y\":", ax__float_list_to_json(ys)),
+    sconcat("\"x\":", ax__float_list_to_json(heads[1])),
+    sconcat("\"y\":", ax__float_list_to_json(heads[2])),
     "\"type\":\"scatter\"",
-    "\"mode\":\"lines\"",
+    sconcat("\"mode\":", ax__json_string(heads[3])),
     sconcat("\"line\":", ax__build_line_style(style))
   ],
-  parts: append(parts, ax__build_trace_style(style, string(expr))),
-  sconcat("{", simplode(parts, ","), "}"))$
+  parts: append(parts, heads[4], ax__build_trace_style(style, string(expr))),
+  if gtrace = false then sconcat("{", simplode(parts, ","), "}")
+  else [gtrace, sconcat("{", simplode(parts, ","), "}")])$
 
 /* 2D parametric trace: parametric(xexpr, yexpr, tvar, tlo, thi) → scatter line */
 ax__trace_parametric_2d(obj, style) := block(
-  [a, xexpr, yexpr, tvar, tlo, thi, n, data, xs, ys, parts],
+  [a, xexpr, yexpr, tvar, tlo, thi, n, data, heads, parts],
   a: args(obj),
   xexpr: a[1], yexpr: a[2], tvar: a[3], tlo: a[4], thi: a[5],
   n: ax__style_get(style, nticks),
   if n = false then n: 500,
   data: ax__sample_parametric_2d(xexpr, yexpr, tvar, tlo, thi, n),
-  xs: data[1], ys: data[2],
+  heads: ax__curve_heads(data[1], data[2], style),
   parts: [
-    sconcat("\"x\":", ax__float_list_to_json(xs)),
-    sconcat("\"y\":", ax__float_list_to_json(ys)),
+    sconcat("\"x\":", ax__float_list_to_json(heads[1])),
+    sconcat("\"y\":", ax__float_list_to_json(heads[2])),
     "\"type\":\"scatter\"",
-    "\"mode\":\"lines\"",
+    sconcat("\"mode\":", ax__json_string(heads[3])),
     sconcat("\"line\":", ax__build_line_style(style))
   ],
-  parts: append(parts, ax__build_trace_style(style, sconcat("(", string(xexpr), ", ", string(yexpr), ")"))),
+  parts: append(parts, heads[4],
+    ax__build_trace_style(style, sconcat("(", string(xexpr), ", ", string(yexpr), ")"))),
   sconcat("{", simplode(parts, ","), "}"))$
 
 /* 2D points trace: points(data) → scatter markers
@@ -619,7 +649,7 @@ ax__trace_points_2d(obj, style) := block(
    data can be [[x1,y1],[x2,y2],...] or [y1,y2,...]
    Also supports lines(xs, ys) with separate x and y lists/ndarrays */
 ax__trace_lines_2d(obj, style) := block(
-  [a, data, xs, ys, parts],
+  [a, data, xs, ys, parts, heads],
   a: args(obj),
   if length(a) = 2 then (
     xs: ax__maybe_list(a[1]),
@@ -634,14 +664,17 @@ ax__trace_lines_2d(obj, style) := block(
       ys: data
     )
   ),
+  ax__check_numeric_data(xs, "lines", "x"),
+  ax__check_numeric_data(ys, "lines", "y"),
+  heads: ax__curve_heads(xs, ys, style),
   parts: [
-    sconcat("\"x\":", ax__float_list_to_json(ax__check_numeric_data(xs, "lines", "x"))),
-    sconcat("\"y\":", ax__float_list_to_json(ax__check_numeric_data(ys, "lines", "y"))),
+    sconcat("\"x\":", ax__float_list_to_json(heads[1])),
+    sconcat("\"y\":", ax__float_list_to_json(heads[2])),
     "\"type\":\"scatter\"",
-    "\"mode\":\"lines\"",
+    sconcat("\"mode\":", ax__json_string(heads[3])),
     sconcat("\"line\":", ax__build_line_style(style))
   ],
-  parts: append(parts, ax__build_trace_style(style, "lines")),
+  parts: append(parts, heads[4], ax__build_trace_style(style, "lines")),
   sconcat("{", simplode(parts, ","), "}"))$
 
 /* ------------------------------------------------------------------------
@@ -793,6 +826,135 @@ ax__trace_polygon_2d(obj, style) := block([a, data, xs, ys, st, parts],
   ],
   parts: append(parts, ax__build_trace_style(st, "polygon")),
   sconcat("{", simplode(parts, ","), "}"))$
+
+/* Whitespace characters trimmed from raw JSON strings */
+ax__ws : sconcat(" ", ascii(9), ascii(10), ascii(13))$
+
+/* Check that S looks like a JSON object string "{...}"; return it trimmed */
+ax__raw_json_object(s, who) := block([t],
+  if not stringp(s) then error(sconcat(who, ": expected a JSON object string, got:"), s),
+  t: strim(ax__ws, s),
+  if slength(t) < 2 or charat(t, 1) # "{" or charat(t, slength(t)) # "}" then
+    error(sconcat(who, ": expected a JSON object string {...}, got:"), s),
+  t)$
+
+/* Escape hatch: ax_trace("{\"type\":\"scatter\", ...}") emits the given
+   Plotly trace JSON verbatim.  Style options do not apply. */
+ax__trace_raw(obj) := block([a: args(obj)],
+  if length(a) # 1 then error("ax_trace: expected ax_trace(json_string)"),
+  ax__raw_json_object(a[1], "ax_trace"))$
+
+/* Arrowheads on curves (head_end, head_start, head_count).
+   Uses Plotly arrow markers with angleref "previous", so each head points
+   along the segment from the previous point in screen space (correct under
+   any aspect ratio).  Marker size is 0 except at head points.
+   head_start prepends a point a hair inside the curve so the first head
+   has a "previous" point and points backwards.
+   Returns [xs, ys, mode, extra_parts]. */
+ax__curve_heads(xs, ys, style) := block(
+  [he, hs0, hc, n, idx, fx, fy, segs, total, targets, acc, k,
+   lw, hsz, sz, c, sizes, mparts],
+  he:  ax__style_get(style, head_end) = true,
+  hs0: ax__style_get(style, head_start) = true,
+  hc:  ax__style_get(style, head_count),
+  if not integerp(hc) then hc: 0,
+  n: length(xs),
+  if (not he and not hs0 and hc <= 0) or n < 2 then return([xs, ys, "lines", []]),
+  fx: map(lambda([v], block([f: float(v)], if numberp(f) then f else false)), xs),
+  fy: map(lambda([v], block([f: float(v)], if numberp(f) then f else false)), ys),
+  idx: [],
+  if he then idx: [n],
+  if hc > 0 then (
+    /* segs[k] = length of segment k -> k+1 (0 across gaps) */
+    segs: map(lambda([x1, y1, x2, y2],
+                if x1 = false or y1 = false or x2 = false or y2 = false then 0.0
+                else sqrt((x2 - x1)^2 + (y2 - y1)^2)),
+              rest(fx, -1), rest(fy, -1), rest(fx), rest(fy)),
+    total: lsum(s, s, segs),
+    if total > 0 then (
+      targets: makelist(j * total / (hc + 1), j, 1, hc),
+      acc: 0.0, k: 1,
+      for s in segs do (
+        k: k + 1,
+        acc: acc + s,
+        while targets # [] and acc >= first(targets) do (
+          idx: cons(k, idx),
+          targets: rest(targets)))
+    )
+  ),
+  if hs0 and fx[1] # false and fy[1] # false and fx[2] # false and fy[2] # false then (
+    xs: cons(fx[1] + 1e-4 * (fx[2] - fx[1]), xs),
+    ys: cons(fy[1] + 1e-4 * (fy[2] - fy[1]), ys),
+    idx: cons(2, map(lambda([i], i + 1), idx)),
+    n: n + 1
+  ),
+  lw:  ax__style_get(style, line_width), if not numberp(lw) then lw: 2,
+  hsz: ax__style_get(style, head_size),  if not numberp(hsz) then hsz: 1,
+  sz:  float(hsz * (3 * lw + 6)),
+  sizes: makelist(if member(i, idx) then sz else 0, i, 1, n),
+  mparts: ["\"symbol\":\"arrow\"", "\"angleref\":\"previous\"",
+           sconcat("\"size\":", ax__float_list_to_json(sizes))],
+  /* an explicit line color doesn't propagate to markers in Plotly */
+  c: ax__style_get(style, color),
+  if c # false then
+    mparts: endcons(sconcat("\"color\":", ax__json_string(ax__color_to_css(c))), mparts),
+  [xs, ys, "lines+markers", [sconcat("\"marker\":{", simplode(mparts, ","), "}")]])$
+
+/* ------------------------------------------------------------------------
+ * Layout helpers shared by the 2D, 3D and polar layout builders
+ * ------------------------------------------------------------------------ */
+
+ax__autosize_p(opts) := is(ax__layout_opt_value(opts, autosize, false) = true)$
+
+/* legend_position: "top-right" | "top-left" | "bottom-right" | "bottom-left"
+   (inside the plot), "top" | "bottom" (outside, horizontal), "right" (Plotly's
+   default), or [x, y] in paper coordinates.  legend_orientation: "h" / "v". */
+ax__legend_json(lp, lo) := block([p, s, spec],
+  p: [],
+  if lp # false then (
+    if listp(lp) then (
+      if length(lp) # 2 then error("legend_position: expected a name or [x, y], got", lp),
+      spec: [lp[1], lp[2], false, false]
+    ) else (
+      s: if stringp(lp) then lp else ssubst("-", "_", sconcat(lp)),
+      spec: if s = "top-right" then [0.99, 0.99, "right", "top"]
+        else if s = "top-left" then [0.01, 0.99, "left", "top"]
+        else if s = "bottom-right" then [0.99, 0.01, "right", "bottom"]
+        else if s = "bottom-left" then [0.01, 0.01, "left", "bottom"]
+        else if s = "top" then [0.5, 1.02, "center", "bottom"]
+        else if s = "bottom" then [0.5, -0.12, "center", "top"]
+        else if s = "right" then [1.02, 1, "left", "top"]
+        else error("legend_position: unknown position", lp),
+      if lo = false and (s = "top" or s = "bottom") then lo: "h"
+    ),
+    p: endcons(sconcat("\"x\":", ax__float_to_json(spec[1])), p),
+    p: endcons(sconcat("\"y\":", ax__float_to_json(spec[2])), p),
+    if spec[3] # false then p: endcons(sconcat("\"xanchor\":", ax__json_string(spec[3])), p),
+    if spec[4] # false then p: endcons(sconcat("\"yanchor\":", ax__json_string(spec[4])), p)
+  ),
+  if lo # false then
+    p: endcons(sconcat("\"orientation\":",
+      ax__json_string(if lo = 'horizontal or lo = "horizontal" or lo = h or lo = "h" then "h" else "v")), p),
+  sconcat("\"legend\":{", simplode(p, ","), "}"))$
+
+/* Layout parts common to every layout builder: autosize, legend */
+ax__common_layout_parts(opts) := block([parts, lp, lo],
+  parts: [],
+  if ax__autosize_p(opts) then parts: endcons("\"autosize\":true", parts),
+  lp: ax__layout_opt_value(opts, legend_position, false),
+  lo: ax__layout_opt_value(opts, legend_orientation, false),
+  if lp # false or lo # false then parts: endcons(ax__legend_json(lp, lo), parts),
+  parts)$
+
+/* layout_raw="{...}": append the given keys to the layout JSON.  Later keys
+   win when JSON is parsed, so these override ax-plots' own settings (except
+   annotations from label/vector, which are spliced in afterwards). */
+ax__layout_merge_raw(layout_json, raw) := block([t, inner],
+  if raw = false then return(layout_json),
+  t: ax__raw_json_object(raw, "layout_raw"),
+  inner: strim(ax__ws, substring(t, 2, slength(t))),
+  if inner = "" then return(layout_json),
+  sconcat(substring(layout_json, 1, slength(layout_json)), ",", inner, "}"))$
 
 /* 3D lines trace: lines(data) → scatter3d lines
    data is [[x1,y1,z1],[x2,y2,z2],...]
@@ -1480,6 +1642,7 @@ ax__build_trace_2d(obj_in, style_in) := block([objop, split, obj, style],
   else if objop = label then ax__trace_label_2d(obj, style)
   else if objop = vector then ax__trace_vector_2d(obj, style)
   else if objop = polygon then ax__trace_polygon_2d(obj, style)
+  else if objop = ax_trace then ax__trace_raw(obj)
   else if objop = ax_contour then ax__trace_contour_2d(obj, style)
   else if objop = ax_heatmap then ax__trace_heatmap_2d(obj, style)
   else if objop = ax_bar then ax__trace_bar_2d(obj, style)
@@ -1502,6 +1665,7 @@ ax__build_trace_3d(obj_in, style_in) := block([objop, split, obj, style],
   else if objop = lines then ax__trace_lines_3d(obj, style)
   else if objop = parametric then ax__trace_parametric_3d(obj, style)
   else if objop = parametric_surface then ax__trace_parametric_surface_3d(obj, style)
+  else if objop = ax_trace then ax__trace_raw(obj)
   else if objop = implicit then ax__trace_implicit_3d(obj, style)
   else if objop = ax_contour3d then ax__trace_contour3d(obj, style)
   else if objop = ax_vector_field3d then ax__trace_vector_field_3d(obj, style)
@@ -1521,10 +1685,36 @@ ax__build_layout_2d(opts) := block(
     if key = title then
       parts: endcons(sconcat("\"title\":{\"text\":", ax__json_string(val), "}"), parts)
     else if key = xrange then (
+      if ax__layout_opt_value(opts, xreversed, false) = true then val: reverse(val),
       xaxis_parts: endcons(sconcat("\"range\":", ax__float_list_to_json(val)), xaxis_parts)
     )
     else if key = yrange then (
+      if ax__layout_opt_value(opts, yreversed, false) = true then val: reverse(val),
       yaxis_parts: endcons(sconcat("\"range\":", ax__float_list_to_json(val)), yaxis_parts)
+    )
+    else if key = xtickvals then
+      xaxis_parts: endcons(sconcat("\"tickvals\":", ax__float_list_to_json(val)), xaxis_parts)
+    else if key = ytickvals then
+      yaxis_parts: endcons(sconcat("\"tickvals\":", ax__float_list_to_json(val)), yaxis_parts)
+    else if key = xticktext then
+      xaxis_parts: endcons(sconcat("\"ticktext\":", ax__string_list_to_json(val)), xaxis_parts)
+    else if key = yticktext then
+      yaxis_parts: endcons(sconcat("\"ticktext\":", ax__string_list_to_json(val)), yaxis_parts)
+    else if key = xtickformat then
+      xaxis_parts: endcons(sconcat("\"tickformat\":", ax__json_string(val)), xaxis_parts)
+    else if key = ytickformat then
+      yaxis_parts: endcons(sconcat("\"tickformat\":", ax__json_string(val)), yaxis_parts)
+    else if key = xzeroline then
+      xaxis_parts: endcons(sconcat("\"zeroline\":", if val then "true" else "false"), xaxis_parts)
+    else if key = yzeroline then
+      yaxis_parts: endcons(sconcat("\"zeroline\":", if val then "true" else "false"), yaxis_parts)
+    else if key = xreversed then (
+      if val = true and not member(xrange, map(lhs, opts)) then
+        xaxis_parts: endcons("\"autorange\":\"reversed\"", xaxis_parts)
+    )
+    else if key = yreversed then (
+      if val = true and not member(yrange, map(lhs, opts)) then
+        yaxis_parts: endcons("\"autorange\":\"reversed\"", yaxis_parts)
     )
     else if key = grid then (
       xaxis_parts: endcons(sconcat("\"showgrid\":", if val then "true" else "false"), xaxis_parts),
@@ -1580,14 +1770,15 @@ ax__build_layout_2d(opts) := block(
   /* Default dimensions if not explicitly provided; auto skips the default.
      When aspect_ratio=true and no explicit height, use square dimensions
      so the plot area doesn't get squished by scaleanchor. */
-  if not member(width, map(lhs, opts)) then
+  if not member(width, map(lhs, opts)) and not ax__autosize_p(opts) then
     parts: endcons("\"width\":700", parts),
-  if not member(height, map(lhs, opts)) then (
+  if not member(height, map(lhs, opts)) and not ax__autosize_p(opts) then (
     if ax__layout_opt_value(opts, aspect_ratio, false) # false then
       parts: endcons("\"height\":700", parts)
     else
       parts: endcons("\"height\":450", parts)
   ),
+  parts: append(parts, ax__common_layout_parts(opts)),
   /* White background by default (Plotly's default is light blue #E5ECF6) */
   if not member(plot_bgcolor, map(lhs, opts)) then
     parts: endcons("\"plot_bgcolor\":\"white\"", parts),
@@ -1598,7 +1789,8 @@ ax__build_layout_2d(opts) := block(
   yaxis_parts: endcons("\"gridcolor\":\"#ddd\",\"linecolor\":\"#ddd\",\"linewidth\":1,\"zerolinecolor\":\"black\",\"zerolinewidth\":1", yaxis_parts),
   parts: endcons(sconcat("\"xaxis\":{", simplode(xaxis_parts, ","), "}"), parts),
   parts: endcons(sconcat("\"yaxis\":{", simplode(yaxis_parts, ","), "}"), parts),
-  sconcat("{", simplode(parts, ","), "}"))$
+  ax__layout_merge_raw(sconcat("{", simplode(parts, ","), "}"),
+                       ax__layout_opt_value(opts, layout_raw, false)))$
 
 /* margin=10 (all sides) or margin=[l, r, t, b] → "margin":{...} (pixels) */
 ax__margin_json(val) := block([m],
@@ -1664,10 +1856,11 @@ ax__build_layout_3d(opts) := block(
     )
   ),
   /* Default dimensions if not explicitly provided; auto skips the default */
-  if not member(width, map(lhs, opts)) then
+  if not member(width, map(lhs, opts)) and not ax__autosize_p(opts) then
     parts: endcons("\"width\":700", parts),
-  if not member(height, map(lhs, opts)) then
+  if not member(height, map(lhs, opts)) and not ax__autosize_p(opts) then
     parts: endcons("\"height\":450", parts),
+  parts: append(parts, ax__common_layout_parts(opts)),
   if not member(paper_bgcolor, map(lhs, opts)) then
     parts: endcons("\"paper_bgcolor\":\"white\"", parts),
   if not member(plot_bgcolor, map(lhs, opts)) then
@@ -1680,7 +1873,8 @@ ax__build_layout_3d(opts) := block(
   scene_parts: endcons(sconcat("\"yaxis\":{", simplode(yaxis_parts, ","), "}"), scene_parts),
   scene_parts: endcons(sconcat("\"zaxis\":{", simplode(zaxis_parts, ","), "}"), scene_parts),
   parts: endcons(sconcat("\"scene\":{", simplode(scene_parts, ","), "}"), parts),
-  sconcat("{", simplode(parts, ","), "}"))$
+  ax__layout_merge_raw(sconcat("{", simplode(parts, ","), "}"),
+                       ax__layout_opt_value(opts, layout_raw, false)))$
 
 /* ========================================================================
  * Output: write Plotly JSON to temp file
@@ -1884,6 +2078,10 @@ ax__can_fast_sample_2d(spec) := block(
   var: a[2], lo: a[3], hi: a[4],
   if not symbolp(var) then return(false),
   if not numberp(float(lo)) or not numberp(float(hi)) then return(false),
+  /* the fast path emits one plain line trace per frame; arrowheads and
+     filled_func change the trace shape, so they take the per-frame path */
+  if ax__curve_heads([0, 1], [0, 1], spec[2])[3] # "lines" then return(false),
+  if ax__style_get(spec[2], filled_func) # false then return(false),
   not (?fboundp(compile_grid) = false))$
 
 /* Bulk-sample all frames of an explicit(...) spec via compile_grid.
@@ -2420,10 +2618,11 @@ ax__build_layout_polar(opts) := block(
       parts: endcons(sconcat("\"paper_bgcolor\":", ax__json_string(val)), parts)
   ),
   /* Default dimensions if not explicitly provided; auto skips the default */
-  if not member(width, map(lhs, opts)) then
+  if not member(width, map(lhs, opts)) and not ax__autosize_p(opts) then
     parts: endcons("\"width\":700", parts),
-  if not member(height, map(lhs, opts)) then
+  if not member(height, map(lhs, opts)) and not ax__autosize_p(opts) then
     parts: endcons("\"height\":450", parts),
+  parts: append(parts, ax__common_layout_parts(opts)),
   if not member(plot_bgcolor, map(lhs, opts)) then
     parts: endcons("\"plot_bgcolor\":\"white\"", parts),
   if not member(paper_bgcolor, map(lhs, opts)) then
@@ -2434,7 +2633,8 @@ ax__build_layout_polar(opts) := block(
   polar_parts: endcons(sconcat("\"radialaxis\":{", simplode(radial_parts, ","), "}"), polar_parts),
   polar_parts: endcons(sconcat("\"angularaxis\":{", simplode(angular_parts, ","), "}"), polar_parts),
   parts: endcons(sconcat("\"polar\":{", simplode(polar_parts, ","), "}"), parts),
-  sconcat("{", simplode(parts, ","), "}"))$
+  ax__layout_merge_raw(sconcat("{", simplode(parts, ","), "}"),
+                       ax__layout_opt_value(opts, layout_raw, false)))$
 
 /* ax_polar: plot r(θ) in polar coordinates.
    ax_polar(expr, [θ, lo, hi], opts...)

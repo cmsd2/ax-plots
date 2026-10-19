@@ -50,7 +50,7 @@ photons, and labels such as `i⁺`, `𝓘⁻`, "horizon r = 2M") with
    `animate` still qualifies for the `compile_grid` fast path).
 3. **Per-object legend and hover control.**  ~~`showlegend`, `hoverinfo`,
    `hover_text`~~ **done** (`hover_text` was accepted but never emitted;
-   it now maps to Plotly `hovertext`).  `legendgroup` still to do.
+   it now maps to Plotly `hovertext`) and `legendgroup` **done**.
 4. ~~**Document programmatic use.**~~ **Done** in `ax_draw2d.md`.
 
 Found and fixed along the way:
@@ -81,8 +81,17 @@ open question 1) and are not yet in `ax_draw3d`.  Label options:
 Plotly's clockwise `textangle`) and draw's `label_orientation`.  Vector
 options: `color`, `line_width`, `head_size` (arrowsize), `head_style`
 (arrowhead), and draw's `head_both`.  Polygon: `fill_color`, outline via
-`color` / `line_width` / `dash`, draw's `transparent`.  Arrowheads on
-curves and `fill_between` remain.
+`color` / `line_width` / `dash`, draw's `transparent`.
+
+Arrowheads on curves are **done**: `head_end`, `head_start` and
+`head_count=n` (evenly spaced by arc length, replacing the proposed
+`head_every`) on `lines` / `explicit` / `parametric`, as `arrow` markers
+with `angleref:"previous"`; marker size is 0 except at heads, so one
+trace keeps the auto colour.  Fill between curves is **done** as the
+draw package's `filled_func` option on `explicit` (`true` → `tozeroy`;
+`g(x)` → an invisible g trace plus `tonexty`) instead of a new
+`fill_between` object.  Both make the `compile_grid` animation fast path
+stand aside, since they change the trace shape.
 
 | Object | Proposed syntax | Plotly mapping | Notes |
 |--------|-----------------|----------------|-------|
@@ -117,17 +126,18 @@ curves and `fill_between` remain.
 
 `margin` (2D, 3D, polar), numeric `aspect_ratio` and `constrain` (2D)
 are **done**.  `width=auto` / `height=auto` already dropped the default
-size; now documented.
+size; now documented.  `autosize`, `legend_position` and
+`legend_orientation` are **done** for 2D, 3D and polar.
 
 | Option | Proposed | Plotly mapping |
 |--------|----------|----------------|
 | ~~`margin`~~ | `margin=[l, r, t, b]` or `margin=10` | `layout.margin` |
 | ~~`aspect_ratio`~~ | accept a number as well as `true` (`true` ≡ `1`) | `yaxis.scaleanchor:"x"` + `scaleratio` |
 | ~~`constrain`~~ | `"range"` (Plotly default) / `"domain"` | `xaxis/yaxis.constrain` — `"domain"` shrinks the plot area instead of widening a range, so explicit `xrange`/`yrange` are honoured exactly under `aspect_ratio` |
-| `autosize` | `autosize=true` drops the 700×700 / 700×450 defaults | omit `width`/`height`, `layout.autosize` |
+| ~~`autosize`~~ | `autosize=true` drops the 700×700 / 700×450 defaults | omit `width`/`height`, `layout.autosize` |
 | `title` styling | `title_font_size`, `title_x`, `title_align` | `layout.title.font`, `.x`, `.xanchor` |
 | `font` | `font_family`, `font_size`, `font_color` (global) | `layout.font` |
-| Legend | `legend_position` (`"top-right"`, `"bottom"`, `[x, y]`), `legend_orientation`, `legend_title` | `layout.legend` |
+| Legend | ~~`legend_position`~~ (`"top-right"`, `"bottom"`, `[x, y]`), ~~`legend_orientation`~~, `legend_title` | `layout.legend` |
 | Theme | `theme="light"/"dark"/"auto"` | background / grid / text colours; today the white `plot_bgcolor` / `paper_bgcolor` defaults fight dark hosts |
 
 ### Axes
@@ -136,6 +146,12 @@ Per-axis (prefix `x`/`y`/`z`): `ticks` / `tickvals` / `ticktext`,
 `tickformat`, `tickangle`, `showticklabels`, `zeroline`, `mirror`,
 axis line colour / width, `reversed`, axis-title font.  `xaxis=false`
 (hide entirely) already works.
+
+**Done (2D):** `xtickvals` / `ytickvals`, `xticktext` / `yticktext`,
+`xtickformat` / `ytickformat`, `xreversed` / `yreversed` (swaps an
+explicit range, else `autorange:"reversed"`), `xzeroline` / `yzeroline`.
+`tickangle` is deferred until the angle convention is settled: Plotly's
+is clockwise, `label_angle` is counterclockwise.
 
 ### Colour
 
@@ -152,7 +168,8 @@ axis line colour / width, `reversed`, axis-title font.  `xaxis=false`
    `plot_svg: null`.  Likely host-side (Plotly `toImage` in the
    renderer, or kaleido), with an ax-plots option to request it.
 2. **Export.**  `ax_export(plot, "file.svg" | ".png" | ".html" | ".json")`.
-3. **Raw escape hatch.**  `ax_trace(json_string)` to inject an
+3. ~~**Raw escape hatch.**~~ **Done** (2D, 3D; `layout_raw` also polar).
+   `ax_trace(json_string)` to inject an
    arbitrary Plotly trace and `layout_raw=json_string` merged into the
    layout, so anything not yet wrapped is still reachable.
 
@@ -201,15 +218,16 @@ engages.  Publishing a newer `numerics` to the index fixes it.
 ## Suggested order
 
 1. ~~§ 1 items 1–4 (coercion, per-object options, legend/hover, docs).~~
-   Done except `legendgroup`.
+   Done.
 2. ~~`label` with rotation and Unicode.~~ Done (2D).
-3. ~~`vector`~~ (done, 2D) and arrowheads on curves.
-4. ~~`polygon`~~ (done, 2D) and `fill_between`.
-5. ~~`margin`, numeric `aspect_ratio`, `constrain`~~ (done), `autosize` —
+3. ~~`vector` and arrowheads on curves.~~ Done (2D).
+4. ~~`polygon` and `fill_between`.~~ Done (2D; fill between via `filled_func`).
+5. ~~`margin`, numeric `aspect_ratio`, `constrain`, `autosize`.~~ Done;
    `margin` still needs the aximar renderer fix to take effect there.
 6. Static image output (§ 4.1) for headless verification.
-7. Raw escape hatch (§ 4.3).
-8. Shapes, annotations, per-point markers, axes/tick options, theme.
+7. ~~Raw escape hatch (§ 4.3).~~ Done.
+8. Shapes, annotations, per-point markers, ~~axes/tick options~~ (done,
+   2D, except `tickangle`), legend title, theme.
 9. Figure builder (§ 5), subplots, 3D parity.
 
 Items 1–5 are enough to reproduce the Penrose–Carter diagram at

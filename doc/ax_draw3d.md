@@ -9,6 +9,7 @@ Draw 3D interactive plots using Plotly.js with WebGL rendering. Produces rotatab
 | `explicit` | `explicit(expr, x, xlo, xhi, y, ylo, yhi)` | A surface z=f(x,y) |
 | `points` | `points([[x1,y1,z1],...])` or `points(xs, ys, zs)` | 3D scatter points |
 | `lines` | `lines([[x1,y1,z1],...])` or `lines(xs, ys, zs)` | 3D line plot from data |
+| `ax_trace` | `ax_trace(json_string)` | A raw Plotly trace, emitted verbatim |
 
 #### Examples
 
@@ -59,6 +60,10 @@ ax_draw3d(
 | `showlegend` | Show legend |
 | `width` | Fixed plot width in pixels |
 | `height` | Fixed plot height in pixels |
+| `autosize` | `true` drops the default size so the plot fills its container |
+| `margin` | Plot margins in pixels: a number, or `[l, r, t, b]` |
+| `legend_position` / `legend_orientation` | Legend placement; see `ax_draw2d` |
+| `layout_raw` | JSON object string merged into the Plotly layout; see `ax_draw2d` |
 | `logx` / `logy` / `logz` | Log-scale axes (`true`/`false`) |
 | `plot_bgcolor` | Scene background color (default `"white"`; maps to `scene.bgcolor`) |
 | `paper_bgcolor` | Outer figure background color (default `"white"`) |

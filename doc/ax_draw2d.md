@@ -16,6 +16,7 @@ Draw 2D interactive plots using Plotly.js. Accepts Maxima draw package objects a
 | `label` | `label([text, x, y], ...)` | Text at data coordinates (rotatable, Unicode) |
 | `vector` | `vector([x, y], [dx, dy])` | Arrow from (x, y) to (x+dx, y+dy) |
 | `polygon` | `polygon([[x1,y1],...])` or `polygon(xs, ys)` | Filled polygon (closed automatically) |
+| `ax_trace` | `ax_trace(json_string)` | A raw Plotly trace, emitted verbatim (see Raw Plotly) |
 
 **Aximar objects:**
 
@@ -117,6 +118,43 @@ ax_draw2d(
   and `dash`; `line_width=0` hides the outline and `transparent=true` draws
   the outline only.
 
+#### Arrowheads and Filled Areas
+
+`lines`, `explicit` and `parametric` accept `head_end=true`,
+`head_start=true` and `head_count=n` (n heads evenly spaced along the curve
+by length).  Heads follow the curve's direction on screen, so they stay
+correct under `aspect_ratio`; `head_size` scales them.
+
+`explicit` accepts the draw package's `filled_func`: `filled_func=true` fills
+between the curve and y = 0, and `filled_func=g(x)` fills between the curve
+and g, using `fill_color`.
+
+```maxima
+ax_draw2d(
+  explicit(sin(x), x, 0, %pi, filled_func=sin(x)/2, fill_color="rgba(0,0,255,0.2)"),
+  parametric(cos(t), sin(t), t, 0, 3*%pi/2, head_end=true, head_count=2),
+  aspect_ratio=true
+)$
+```
+
+Like the draw package, `filled_func` is sticky when given at the top level:
+it applies to every later `explicit` until reset with `filled_func=false`.
+
+#### Raw Plotly
+
+Anything not wrapped by ax-plots can be passed through as JSON:
+`ax_trace("{...}")` adds a Plotly trace verbatim, and
+`layout_raw="{...}"` appends keys to the layout, overriding ax-plots' own
+values (annotations from `label` / `vector` still take precedence).
+
+```maxima
+ax_draw2d(
+  explicit(x^2, x, -1, 1),
+  ax_trace("{\"type\":\"bar\",\"x\":[-0.5,0.5],\"y\":[0.25,0.25],\"opacity\":0.4}"),
+  layout_raw="{\"hovermode\":\"x unified\"}"
+)$
+```
+
 #### Data Values
 
 `lines` and `points` data may contain exact numeric constants such as
@@ -180,6 +218,10 @@ Options use Plotly-native naming and apply to subsequent objects until overridde
 | `head_style` | 1 | Arrowhead shape 0–8 (vector) |
 | `head_both` | false | Arrowheads at both ends (vector) |
 | `transparent` | false | Polygon outline only, no fill |
+| `head_end` / `head_start` | false | Arrowhead at the end / start of a curve |
+| `head_count` | 0 | Arrowheads evenly spaced along a curve |
+| `filled_func` | false | `explicit` only: `true` fills to y = 0, `g(x)` fills between the curve and g |
+| `legendgroup` | none | Traces with the same group toggle together in the legend |
 | `colorscale` | none | Color scale for contour/heatmap (e.g. `"Viridis"`, `"Hot"`) |
 | `showscale` | auto | Show/hide colorbar for contour/heatmap |
 | `ncontours` | auto | Number of contour levels (ax_contour) |
@@ -208,6 +250,15 @@ Options use Plotly-native naming and apply to subsequent objects until overridde
 | `margin` | Plot margins in pixels: a number for all sides, or `[l, r, t, b]` |
 | `width` | Fixed plot width in pixels (`auto` to size to the container) |
 | `height` | Fixed plot height in pixels (`auto` to size to the container) |
+| `autosize` | `true` drops both default sizes so the plot fills its container |
+| `legend_position` | `"top-right"`, `"top-left"`, `"bottom-right"`, `"bottom-left"` (inside), `"top"`, `"bottom"` (outside, horizontal), `"right"`, or `[x, y]` in paper coordinates |
+| `legend_orientation` | `"h"` / `"v"` (or `horizontal` / `vertical`) |
+| `xtickvals` / `ytickvals` | Tick positions, e.g. `[0, %pi/2, %pi]` |
+| `xticktext` / `yticktext` | Tick labels matching `xtickvals` / `ytickvals`, e.g. `["0", "π/2", "π"]` |
+| `xtickformat` / `ytickformat` | d3 number format for tick labels, e.g. `".2f"`, `".0%"` |
+| `xreversed` / `yreversed` | Reverse the axis direction |
+| `xzeroline` / `yzeroline` | Show / hide the zero line |
+| `layout_raw` | JSON object string appended to the Plotly layout (see Raw Plotly) |
 | `bar_mode` | Bar/histogram grouping: `"group"`, `"stack"`, `"overlay"` |
 | `logx` / `logy` | Log-scale axes (`true`/`false`) |
 | `plot_bgcolor` | Plot-area background color (default `"white"`) |
