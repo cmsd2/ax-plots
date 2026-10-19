@@ -2678,6 +2678,12 @@ ax__build_updatemenus_json(layout_opts) := block(
     ["buttons",    ax__json_list([play_btn, pause_btn])]
   ]))$
 
+/* loop= was documented in the animate design but never implemented
+   (Plotly's animate has no looping), so reject it rather than ignore it */
+ax__check_loop_option(layout_opts) :=
+  if member(loop, map(lhs, layout_opts)) then
+    error("loop: not implemented; an animation plays once per press of the play button")$
+
 /* Splice sliders + updatemenus into an existing layout JSON object.
    Assumes LAYOUT_JSON has at least one field (always true since
    ax__build_layout_2d/3d unconditionally set width + height). */
@@ -2792,6 +2798,7 @@ ax__draw2d_impl(ax__args_in, reuse_view_id) := block(
           traces: endcons(result, traces))
     else error("ax_draw2d: unrecognized argument:", item)
   ),
+  ax__check_loop_option(layout_opts),
   layout_json: ax__build_layout_2d(layout_opts),
   annotations: ax__layout_items(lay, "annotations"),
   shapes: ax__layout_items(lay, "shapes"),
@@ -2897,6 +2904,7 @@ ax__draw3d_impl(ax__args_in, reuse_view_id) := block(
           traces: endcons(result, traces))
     else error("ax_draw3d: unrecognized argument:", item)
   ),
+  ax__check_loop_option(layout_opts),
   layout_json: ax__build_layout_3d(layout_opts),
   if has_anim then (
     param_values:     ax__animate_param_values(anim_lo, anim_hi, anim_n),

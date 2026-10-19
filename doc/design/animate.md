@@ -162,7 +162,7 @@ ax_draw3d(animate(
 |--------|---------|-------------|
 | `fps` | `12` | Playback rate. Translates to `frame.duration = 1000/fps` ms. |
 | `transition_duration` | matches frame duration | Tween length between frames. Set `0` for hard step. |
-| `loop` | `"repeat"` | One of `"once"`, `"repeat"`, `"pingpong"` (matches Desmos's three modes). |
+| ~~`loop`~~ | — | **Not implemented**: Plotly's animate has no looping, so it would need host-side JavaScript.  Giving `loop` is an error; an animation plays once per press of play. |
 | `slider_label` | name of `param` | Slider prefix label. |
 
 These are layout-level options (siblings of `title`, `xrange`, …), not options
@@ -265,6 +265,16 @@ but no functional change is expected.
 
 This is a complete enumeration of every object in `ax__draw_object_names`.
 Each object is in one of three categories.
+
+### Layout objects: labels, arrows, shapes
+
+`label`, `vector`, `rectangle`, `ellipse`, `hline` and `vline` are Plotly
+layout objects (annotations and shapes), not traces.  Each frame carries a
+`layout` with the whole `annotations` / `shapes` array: the static items and
+the animated ones rebuilt at that frame's value, in argument order.  Plotly
+replaces those arrays per frame without tweening, so they jump between
+frames; the slider and play button use `redraw: true`, which layout updates
+need.  2D only.
 
 ### Supported with smooth tween
 

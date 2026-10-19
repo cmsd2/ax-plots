@@ -138,6 +138,8 @@ below the data.  `line_shape` is **done**.
   `grid` + `xaxis2`/`yaxis2`).
 - Secondary y-axis (`yaxis2`, `overlaying:"y"`).
 - Raster image with data coordinates (`layout.images`).
+- Animation `loop` (repeat / ping-pong).  Plotly's animate doesn't loop,
+  so it needs host-side JavaScript; until then `loop` is an error.
 - 3D parity: `label` (`scatter3d` `mode:"text"`), arrows (`cone`), and
   `polygon` (`mesh3d`) in `ax_draw3d`.
 

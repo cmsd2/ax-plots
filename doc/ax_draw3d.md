@@ -9,6 +9,12 @@ Draw 3D interactive plots using Plotly.js with WebGL rendering. Produces rotatab
 | `explicit` | `explicit(expr, x, xlo, xhi, y, ylo, yhi)` | A surface z=f(x,y) |
 | `points` | `points([[x1,y1,z1],...])` or `points(xs, ys, zs)` | 3D scatter points |
 | `lines` | `lines([[x1,y1,z1],...])` or `lines(xs, ys, zs)` | 3D line plot from data |
+| `parametric` | `parametric(x(t), y(t), z(t), t, t0, t1)` | A space curve |
+| `parametric_surface` | `parametric_surface(x(u,v), y(u,v), z(u,v), u, u0, u1, v, v0, v1)` | A parametric surface |
+| `implicit` | `implicit(f(x,y,z) = c, x, x0, x1, y, y0, y1, z, z0, z1)` | The surface where the equation holds (an isosurface) |
+| `ax_contour3d` | `ax_contour3d(expr, x, x0, x1, y, y0, y1)` | A surface z = f(x,y) with contour lines, projected onto the floor |
+| `ax_vector_field3d` | `ax_vector_field3d(Fx, Fy, Fz, x, x0, x1, y, y0, y1, z, z0, z1)` | Cones showing a vector field on a grid |
+| `animate` | `animate(object, [param, lo, hi])` | Any of the above over a parameter (see `animate`) |
 | `ax_trace` | `ax_trace(json_string)` | A raw Plotly trace, emitted verbatim |
 
 #### Examples
@@ -36,7 +42,25 @@ ax_draw3d(
   title="Saddle Surface",
   colorscale="Viridis"
 )$
+
+/* Space curve and parametric surface (a torus) */
+ax_draw3d(parametric(cos(t), sin(t), t/5, t, 0, 6*%pi))$
+ax_draw3d(parametric_surface((2 + cos(v))*cos(u), (2 + cos(v))*sin(u), sin(v),
+                             u, 0, 2*%pi, v, 0, 2*%pi))$
+
+/* Implicit surface: a sphere */
+ax_draw3d(implicit(x^2 + y^2 + z^2 = 1, x, -1.2, 1.2, y, -1.2, 1.2, z, -1.2, 1.2))$
+
+/* Contour lines on a surface, and a 3D vector field */
+ax_draw3d(ax_contour3d(sin(x)*cos(y), x, -%pi, %pi, y, -%pi, %pi))$
+ax_draw3d(ax_vector_field3d(-y, x, z/2, x, -1, 1, y, -1, 1, z, -1, 1))$
 ```
+
+Grid sizes are limited to keep the plots responsive; a value above the
+limit falls back to the default.  `nticks` is at most 200 for surfaces
+(default 50) and at most 50 for `implicit` (default 20); `ngrid` is at most
+15 for `ax_vector_field3d` (default 8, so 512 cones).  `normalize=true` draws
+all cones the same size.
 
 As in `ax_draw2d`, arguments may be lists of objects, and
 `group(obj, ..., opt=val, ...)` applies options to the objects in it only.

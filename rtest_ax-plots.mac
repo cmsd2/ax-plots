@@ -640,6 +640,12 @@ errcatch(ax__animate_spec(animate(explicit(sin(x), x, -1, 1), [2, 0, 1])));
 errcatch(ax__animate_spec(animate(explicit(sin(k*x), x, -1, 1), [k, 0, 1, 1])));
 [];
 
+/* loop is not implemented, so it is an error rather than silently ignored */
+errcatch(ax_draw2d(animate(explicit(sin(k*x), x, 0, 1), [k, 0, 1, 3]), loop = "repeat"));
+[];
+errcatch(ax_draw3d(points([[0, 0, 0]]), loop = "once"));
+[];
+
 /* an animated ax_draw2d call returns 'done */
 ax_draw2d(animate(explicit(sin(k*x), x, -%pi, %pi), [k, 0.1, 2, 3]));
 done;
