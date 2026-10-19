@@ -599,7 +599,7 @@ ax__trace_explicit_2d(obj, style) := block(
     sconcat("\"y\":", ax__float_list_to_json(heads[2])),
     "\"type\":\"scatter\"",
     sconcat("\"mode\":", ax__json_string(heads[3])),
-    sconcat("\"line\":", ax__build_line_style(style))
+    sconcat("\"line\":", ax__curve_line_json(style, heads))
   ],
   parts: append(parts, heads[4], ax__build_trace_style(style, string(expr))),
   if gtrace = false then sconcat("{", simplode(parts, ","), "}")
@@ -619,7 +619,7 @@ ax__trace_parametric_2d(obj, style) := block(
     sconcat("\"y\":", ax__float_list_to_json(heads[2])),
     "\"type\":\"scatter\"",
     sconcat("\"mode\":", ax__json_string(heads[3])),
-    sconcat("\"line\":", ax__build_line_style(style))
+    sconcat("\"line\":", ax__curve_line_json(style, heads))
   ],
   parts: append(parts, heads[4],
     ax__build_trace_style(style, sconcat("(", string(xexpr), ", ", string(yexpr), ")"))),
@@ -681,7 +681,7 @@ ax__trace_lines_2d(obj, style) := block(
     sconcat("\"y\":", ax__float_list_to_json(heads[2])),
     "\"type\":\"scatter\"",
     sconcat("\"mode\":", ax__json_string(heads[3])),
-    sconcat("\"line\":", ax__build_line_style(style))
+    sconcat("\"line\":", ax__curve_line_json(style, heads))
   ],
   parts: append(parts, heads[4], ax__build_trace_style(style, "lines")),
   sconcat("{", simplode(parts, ","), "}"))$
@@ -1031,6 +1031,15 @@ ax__curve_heads(xs, ys, style) := block(
      chart and fade markers to 0.7 (trace-level opacity still applies) */
   mparts: append(mparts, ["\"line\":{\"width\":0}", "\"opacity\":1"]),
   [reverse(ox), reverse(oy), "lines+markers", [sconcat("\"marker\":{", simplode(mparts, ","), "}")]])$
+
+/* Line style for a curve built with ax__curve_heads.  With heads, Plotly's
+   line simplification (on by default) splits a lines+markers trace into
+   short paths and can drop a piece next to a head, leaving a visible gap;
+   simplify=false keeps the line whole. */
+ax__curve_line_json(style, heads) := block([s: ax__build_line_style(style)],
+  if heads[3] = "lines" then s
+  else if s = "{}" then "{\"simplify\":false}"
+  else sconcat("{\"simplify\":false,", substring(s, 2)))$
 
 /* ------------------------------------------------------------------------
  * Layout helpers shared by the 2D, 3D and polar layout builders

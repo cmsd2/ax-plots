@@ -102,7 +102,10 @@ the end of the line; for wavy lines the docs recommend ending the data
 with a straight run about one head long (TikZ's `post length` idiom).
 Head markers set `line.width` 0 and `opacity` 1: Plotly's default marker
 outline cut a light rim into the line, and an array-valued `size` makes
-Plotly fade markers to 0.7 as for bubble charts.
+Plotly fade markers to 0.7 as for bubble charts.  Curves with heads also set
+`line.simplify` false: with markers present, Plotly's simplification
+split the line into two-point paths and dropped one next to a head,
+leaving a visible gap (found by rendering to SVG and checking the paths).
 
 | Object | Proposed syntax | Plotly mapping | Notes |
 |--------|-----------------|----------------|-------|

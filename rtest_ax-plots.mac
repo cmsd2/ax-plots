@@ -290,6 +290,12 @@ block([j: ax__build_trace_2d(lines([0, 1, 2], [0, 1, 0], head_end = true), ax__d
    numberp(ssearch("\"symbol\":\"arrow\",\"angleref\":\"previous\",\"size\":[0.0,0.0,12.0]", j))]);
 [true, true];
 
+/* with heads, Plotly line simplification is turned off (it split the line
+   and dropped a piece next to a head); without heads it is left alone */
+[numberp(ssearch("\"line\":{\"simplify\":false,", ax__build_trace_2d(lines([0, 1, 2], [0, 1, 0], head_end = true), ax__default_style()))),
+ ssearch("simplify", ax__build_trace_2d(lines([0, 1, 2], [0, 1, 0]), ax__default_style()))];
+[true, false];
+
 /* head_start prepends a point just inside the curve */
 block([j: ax__build_trace_2d(lines([0, 1, 2], [0, 0, 0], head_start = true), ax__default_style())],
   [numberp(ssearch("\"x\":[1.0e-4,0.0,1.0,2.0]", j)), numberp(ssearch("\"size\":[0.0,12.0,0.0,0.0]", j))]);
