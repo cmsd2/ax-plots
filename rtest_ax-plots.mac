@@ -456,31 +456,112 @@ ax_draw3d(animate(explicit(sin(k*x)*cos(y), x, -%pi, %pi, y, -%pi, %pi),
                   [k, 0.5, 1.5, 3]));
 done;
 
+/* --- numerics (optional): ndarray inputs and the animate fast path ------ */
+
+/* numerics is optional.  Without it, each test that needs it is skipped by
+   returning its expected value.  compile_grid (the animate fast path) is
+   newer than some numerics releases, so it is checked separately. */
+
+(ax__t_numerics: is(errcatch(load("numerics")) # []),
+ ax__t_compile_grid: ax__t_numerics and not (?fboundp(compile_grid) = false),
+ if not ax__t_numerics then
+   print("rtest_ax-plots: numerics is not installed; skipping the tests that need it"),
+ true);
+true;
+
+/* plain lists are not ndarrays and pass through unchanged */
+[ax__ndarray_p([1, 2]), ax__maybe_list([1, 2])];
+[false, [1, 2]];
+
+/* an ndarray is converted to a list */
+if not ax__t_numerics then [true, [0.0, 0.5, 1.0]] else
+ block([a: np_linspace(0, 1, 3)], [ax__ndarray_p(a), ax__maybe_list(a)]);
+[true, [0.0, 0.5, 1.0]];
+
+/* 2D lines and points from ndarrays give the same traces as from lists */
+if not ax__t_numerics then [true, true] else
+ [is(ax__build_trace_2d(lines(np_linspace(0, 1, 3), np_linspace(0, 2, 3)), ax__default_style())
+     = ax__build_trace_2d(lines([0, 0.5, 1], [0, 1, 2]), ax__default_style())),
+  is(ax__build_trace_2d(points(np_linspace(0, 1, 3), np_linspace(0, 2, 3)), ax__default_style())
+     = ax__build_trace_2d(points([0, 0.5, 1], [0, 1, 2]), ax__default_style()))];
+[true, true];
+
+/* 3D lines from ndarrays */
+if not ax__t_numerics then true else
+ is(ax__build_trace_3d(lines(np_linspace(0, 1, 3), np_linspace(0, 2, 3), np_linspace(0, 3, 3)),
+                       ax__default_style())
+    = ax__build_trace_3d(lines([0, 0.5, 1], [0, 1, 2], [0, 1.5, 3]), ax__default_style()));
+true;
+
+/* a heatmap from a 2D ndarray matches one from a matrix */
+if not ax__t_numerics then true else
+ is(ax__build_trace_2d(ax_heatmap(np_eye(2), ["a", "b"], ["c", "d"]), ax__default_style())
+    = ax__build_trace_2d(ax_heatmap(matrix([1, 0], [0, 1]), ["a", "b"], ["c", "d"]),
+                         ax__default_style()));
+true;
+
+/* the animate fast path is used exactly when compile_grid is available */
+is(ax__can_fast_sample_2d([explicit(sin(k*x), x, 0, 1), ax__default_style(), 0, 1])
+   = ax__t_compile_grid);
+true;
+
+/* fast-path samples match direct evaluation: frame k = 2 is sin(2x) */
+if not ax__t_compile_grid then true else
+ block([c: ax__bulk_sample_explicit_2d([explicit(sin(k*x), x, 0, 1),
+                                        ax__apply_option(ax__default_style(), nticks = 5), 0, 1],
+                                       k, [0.5, 2.0])],
+   is(lmax(map(lambda([y, x], abs(y - sin(2.0*x))), c[1][2], makelist(i/4.0, i, 0, 4)))
+      < 1e-12));
+true;
+
+/* an animated plot through the fast path (when available) returns 'done */
+ax_draw2d(animate(explicit(sin(k*x), x, -%pi, %pi), [k, 0.1, 2, 3]));
+done;
+
 /* --- reactive path: _reactive metadata + view registry ------------------ */
 
-(load("reactive"), true);
+/* reactive is optional.  Without it, each test that needs it is skipped by
+   returning its expected value, and the tests of behaviour without reactive
+   run instead. */
+
+(ax__t_reactive: is(errcatch(load("reactive")) # []),
+ if not ax__t_reactive then
+   print("rtest_ax-plots: reactive is not installed; skipping the tests that need it"),
+ true);
 true;
+
+/* without reactive, signals aren't looked for and a plot is a plain plot */
+if ax__t_reactive then [false, [], done, 0] else
+ (ax__clear_views(),
+  [ax__reactive_loaded_p(),
+   ax__collect_signals_in_args([explicit(sin(x), x, 0, 1)]),
+   ax_draw2d(explicit(sin(x), x, 0, 1)),
+   length(ax__view_registry)]);
+[false, [], done, 0];
 
 /* Signals in hand-typed expressions use signal("name"), which
    returns the noun form for an already-registered signal. */
 
 /* before any signal-bearing draw, ax__reactive_loaded_p reports the
    reactive package is available */
-ax__reactive_loaded_p();
+if not ax__t_reactive then true else
+ ax__reactive_loaded_p();
 true;
 
 /* a plot with a signal returns 'done and registers a view */
-(reactive_reset(), ax__clear_views(),
- widget_slider("rfreq", 0.1, 5),
- ax_draw2d(explicit(sin(signal("rfreq") * x), x, -%pi, %pi)),
- length(ax__view_registry));
+if not ax__t_reactive then 1 else
+ (reactive_reset(), ax__clear_views(),
+  widget_slider("rfreq", 0.1, 5),
+  ax_draw2d(explicit(sin(signal("rfreq") * x), x, -%pi, %pi)),
+  length(ax__view_registry));
 1;
 
 /* the registered entry has shape [view_id, args, "2d"] */
-(reactive_reset(), ax__clear_views(),
- widget_slider("rfreq", 0.1, 5),
- ax_draw2d(explicit(sin(signal("rfreq") * x), x, -%pi, %pi)),
- third(first(ax__view_registry)));
+if not ax__t_reactive then "2d" else
+ (reactive_reset(), ax__clear_views(),
+  widget_slider("rfreq", 0.1, 5),
+  ax_draw2d(explicit(sin(signal("rfreq") * x), x, -%pi, %pi)),
+  third(first(ax__view_registry)));
 "2d";
 
 /* ax__replot_2d on an unknown id errors */
@@ -488,56 +569,63 @@ errcatch(ax__replot_2d("not_a_real_view"));
 [];
 
 /* a plot with no signals doesn't register a view */
-(reactive_reset(), ax__clear_views(),
- ax_draw2d(explicit(sin(x), x, -%pi, %pi)),
- length(ax__view_registry));
+if not ax__t_reactive then 0 else
+ (reactive_reset(), ax__clear_views(),
+  ax_draw2d(explicit(sin(x), x, -%pi, %pi)),
+  length(ax__view_registry));
 0;
 
 /* animate + signal in the same call is a v0 error */
-(reactive_reset(),
- widget_slider("rk", 0.1, 5),
- errcatch(ax_draw2d(animate(explicit(sin(signal("rk") * x), x, -%pi, %pi),
-                            [j, 0, 1, 5]))));
+if not ax__t_reactive then [] else
+ (reactive_reset(),
+  widget_slider("rk", 0.1, 5),
+  errcatch(ax_draw2d(animate(explicit(sin(signal("rk") * x), x, -%pi, %pi),
+                             [j, 0, 1, 5]))));
 [];
 
 /* --- 3D reactive parity ------------------------------------------------- */
 
 /* a 3D plot with a signal registers a view tagged "3d" */
-(reactive_reset(), ax__clear_views(),
- widget_slider("r3k", 0.1, 3),
- ax_draw3d(explicit(sin(signal("r3k") * x) * cos(y),
-                    x, -%pi, %pi, y, -%pi, %pi)),
- third(first(ax__view_registry)));
+if not ax__t_reactive then "3d" else
+ (reactive_reset(), ax__clear_views(),
+  widget_slider("r3k", 0.1, 3),
+  ax_draw3d(explicit(sin(signal("r3k") * x) * cos(y),
+                     x, -%pi, %pi, y, -%pi, %pi)),
+  third(first(ax__view_registry)));
 "3d";
 
 /* ax__replot_3d on a 2d-registered view errors */
-(reactive_reset(), ax__clear_views(),
- widget_slider("r2k", 0.1, 5),
- ax_draw2d(explicit(sin(signal("r2k") * x), x, -%pi, %pi)),
- errcatch(ax__replot_3d(first(first(ax__view_registry)))));
+if not ax__t_reactive then [] else
+ (reactive_reset(), ax__clear_views(),
+  widget_slider("r2k", 0.1, 5),
+  ax_draw2d(explicit(sin(signal("r2k") * x), x, -%pi, %pi)),
+  errcatch(ax__replot_3d(first(first(ax__view_registry)))));
 [];
 
 /* ax__replot_2d on a 3d-registered view errors */
-(reactive_reset(), ax__clear_views(),
- widget_slider("r3b", 0.1, 3),
- ax_draw3d(explicit(sin(signal("r3b") * x) * cos(y),
-                    x, -%pi, %pi, y, -%pi, %pi)),
- errcatch(ax__replot_2d(first(first(ax__view_registry)))));
+if not ax__t_reactive then [] else
+ (reactive_reset(), ax__clear_views(),
+  widget_slider("r3b", 0.1, 3),
+  ax_draw3d(explicit(sin(signal("r3b") * x) * cos(y),
+                     x, -%pi, %pi, y, -%pi, %pi)),
+  errcatch(ax__replot_2d(first(first(ax__view_registry)))));
 [];
 
 /* ax__replot dispatches by kind: 2d view → returns 'done */
-(reactive_reset(), ax__clear_views(),
- widget_slider("rd2", 0.1, 5),
- ax_draw2d(explicit(sin(signal("rd2") * x), x, -%pi, %pi)),
- ax__replot(first(first(ax__view_registry))));
+if not ax__t_reactive then 'done else
+ (reactive_reset(), ax__clear_views(),
+  widget_slider("rd2", 0.1, 5),
+  ax_draw2d(explicit(sin(signal("rd2") * x), x, -%pi, %pi)),
+  ax__replot(first(first(ax__view_registry))));
 'done;
 
 /* ax__replot dispatches by kind: 3d view → returns 'done */
-(reactive_reset(), ax__clear_views(),
- widget_slider("rd3", 0.1, 3),
- ax_draw3d(explicit(sin(signal("rd3") * x) * cos(y),
-                    x, -%pi, %pi, y, -%pi, %pi)),
- ax__replot(first(first(ax__view_registry))));
+if not ax__t_reactive then 'done else
+ (reactive_reset(), ax__clear_views(),
+  widget_slider("rd3", 0.1, 3),
+  ax_draw3d(explicit(sin(signal("rd3") * x) * cos(y),
+                     x, -%pi, %pi, y, -%pi, %pi)),
+  ax__replot(first(first(ax__view_registry))));
 'done;
 
 /* ax__replot on an unknown id errors */
@@ -549,26 +637,30 @@ errcatch(ax__replot("not_a_real_view"));
 /* dropdown carries a "choices" field; other kinds do not.  ssearch
    returns the 1-based match index or false; here we just check truthy
    vs false. */
-(reactive_reset(), ax__clear_views(),
- widget_dropdown("rdrop", [1, 2, 5]),
- numberp(ssearch("\"choices\":[1.0,2.0,5.0]",
-                 ax__build_reactive_json("v_x", ["rdrop"]))));
+if not ax__t_reactive then true else
+ (reactive_reset(), ax__clear_views(),
+  widget_dropdown("rdrop", [1, 2, 5]),
+  numberp(ssearch("\"choices\":[1.0,2.0,5.0]",
+                  ax__build_reactive_json("v_x", ["rdrop"]))));
 true;
 
 /* checkbox carries kind=checkbox and no choices field */
-(reactive_reset(), ax__clear_views(),
- widget_checkbox("rcb", true),
- block([j: ax__build_reactive_json("v_y", ["rcb"])],
-   [numberp(ssearch("\"kind\":\"checkbox\"", j)),
-    ssearch("\"choices\"", j)]));
+if not ax__t_reactive then [true, false] else
+ (reactive_reset(), ax__clear_views(),
+  widget_checkbox("rcb", true),
+  block([j: ax__build_reactive_json("v_y", ["rcb"])],
+    [numberp(ssearch("\"kind\":\"checkbox\"", j)),
+     ssearch("\"choices\"", j)]));
 [true, false];
 
 /* number carries kind=number */
-(reactive_reset(), ax__clear_views(),
- widget_number("rnum", 0, 10, 3),
- numberp(ssearch("\"kind\":\"number\"",
-                 ax__build_reactive_json("v_z", ["rnum"]))));
+if not ax__t_reactive then true else
+ (reactive_reset(), ax__clear_views(),
+  widget_number("rnum", 0, 10, 3),
+  numberp(ssearch("\"kind\":\"number\"",
+                  ax__build_reactive_json("v_z", ["rnum"]))));
 true;
 
-(ax__clear_views(), reactive_reset(), true);
+if not ax__t_reactive then true else
+ (ax__clear_views(), reactive_reset(), true);
 true;
