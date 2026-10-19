@@ -173,7 +173,7 @@ ax__layout_option_names : [title, xrange, yrange, zrange, grid, xaxis, yaxis,
   autosize, legend_position, legend_orientation, legend_title, layout_raw,
   title_font_size, title_x, title_align, colorway,
   xtickvals, ytickvals, xticktext, yticktext, xtickformat, ytickformat,
-  xreversed, yreversed, xzeroline, yzeroline,
+  xreversed, yreversed, xzeroline, yzeroline, theme, diagram,
   /* animation playback options (siblings of title/xrange/...) */
   fps, transition_duration, loop, slider_label]$
 
@@ -1246,6 +1246,26 @@ ax__common_layout_parts(opts) := block([parts, lp, lo, lt, cw],
   ),
   parts)$
 
+/* theme="light" (default) or "dark" → [background, grid, axis line, zero
+   line, text] colours.  Text is false for light, keeping Plotly's default. */
+ax__theme_colors(opts) := block([t: ax__layout_opt_value(opts, theme, "light")],
+  if member(t, ['light, "light"]) then ["white", "#ddd", "#ddd", "black", false]
+  else if member(t, ['dark, "dark"]) then ["#111111", "#333333", "#555555", "#aaaaaa", "#e8e8e8"]
+  else error("theme: expected \"light\" or \"dark\", got", t))$
+
+/* Grid / axis-line (and zero-line) colours for one axis */
+ax__theme_axis_json(tc, zero) :=
+  sconcat("\"gridcolor\":\"", tc[2], "\",\"linecolor\":\"", tc[3], "\",\"linewidth\":1",
+          if zero then sconcat(",\"zerolinecolor\":\"", tc[4], "\",\"zerolinewidth\":1") else "")$
+
+/* Text colour for a dark theme, plus template defaults for annotation arrows
+   and shape outlines, which Plotly otherwise draws dark grey on any background */
+ax__theme_text_parts(tc) :=
+  if tc[5] = false then []
+  else [sconcat("\"font\":{\"color\":\"", tc[5], "\"}"),
+        sconcat("\"template\":{\"layout\":{\"annotationdefaults\":{\"arrowcolor\":\"", tc[5],
+                "\"},\"shapedefaults\":{\"line\":{\"color\":\"", tc[5], "\"}}}}")]$
+
 /* title="..." plus title_font_size, title_x (0–1, paper) and
    title_align ("left" / "center" / "right", the anchor at title_x) */
 ax__title_json(text, opts) := block([p, fs, tx, ta],
@@ -1991,7 +2011,15 @@ ax__build_trace_3d(obj_in, style_in) := block([objop, split, obj, style],
  * ======================================================================== */
 
 ax__build_layout_2d(opts) := block(
-  [parts, xaxis_parts, yaxis_parts, v],
+  [parts, xaxis_parts, yaxis_parts, v, tc, keys],
+  /* diagram=true: no axes, grid, legend or hover, equal scales and a height
+     fitted to the ranges -- each only where not given explicitly */
+  if ax__layout_opt_value(opts, diagram, false) = true then (
+    keys: map(lhs, opts),
+    opts: append(opts, sublist(['xaxis = false, 'yaxis = false, 'grid = false, 'showlegend = false,
+                                'aspect_ratio = true, 'height = 'fit],
+                               lambda([d], not member(lhs(d), keys))))),
+  tc: ax__theme_colors(opts),
   parts: [],
   xaxis_parts: [],
   yaxis_parts: [],
@@ -2064,7 +2092,7 @@ ax__build_layout_2d(opts) := block(
         parts: endcons(sconcat("\"width\":", string(val)), parts)
     )
     else if key = height then (
-      if val # 'auto then
+      if val # 'auto and not member(val, ['fit, "fit"]) then
         parts: endcons(sconcat("\"height\":", string(val)), parts)
     )
     else if key = bar_mode then
@@ -2093,19 +2121,47 @@ ax__build_layout_2d(opts) := block(
     else
       parts: endcons("\"height\":450", parts)
   ),
-  parts: append(parts, ax__common_layout_parts(opts)),
-  /* White background by default (Plotly's default is light blue #E5ECF6) */
+  if member(ax__layout_opt_value(opts, height, false), ['fit, "fit"]) then
+    parts: append(parts, ax__fit_height_parts(opts)),
+  if ax__layout_opt_value(opts, diagram, false) = true then
+    parts: endcons("\"hovermode\":false", parts),
+  parts: append(parts, ax__common_layout_parts(opts), ax__theme_text_parts(tc)),
+  /* Theme background (white by default; Plotly's own default is light blue) */
   if not member(plot_bgcolor, map(lhs, opts)) then
-    parts: endcons("\"plot_bgcolor\":\"white\"", parts),
+    parts: endcons(sconcat("\"plot_bgcolor\":", ax__json_string(tc[1])), parts),
   if not member(paper_bgcolor, map(lhs, opts)) then
-    parts: endcons("\"paper_bgcolor\":\"white\"", parts),
-  /* Axis line and grid colors for white background */
-  xaxis_parts: endcons("\"gridcolor\":\"#ddd\",\"linecolor\":\"#ddd\",\"linewidth\":1,\"zerolinecolor\":\"black\",\"zerolinewidth\":1", xaxis_parts),
-  yaxis_parts: endcons("\"gridcolor\":\"#ddd\",\"linecolor\":\"#ddd\",\"linewidth\":1,\"zerolinecolor\":\"black\",\"zerolinewidth\":1", yaxis_parts),
+    parts: endcons(sconcat("\"paper_bgcolor\":", ax__json_string(tc[1])), parts),
+  xaxis_parts: endcons(ax__theme_axis_json(tc, true), xaxis_parts),
+  yaxis_parts: endcons(ax__theme_axis_json(tc, true), yaxis_parts),
   parts: endcons(sconcat("\"xaxis\":{", simplode(xaxis_parts, ","), "}"), parts),
   parts: endcons(sconcat("\"yaxis\":{", simplode(yaxis_parts, ","), "}"), parts),
   ax__layout_merge_raw(sconcat("{", simplode(parts, ","), "}"),
                        ax__layout_opt_value(opts, layout_raw, false)))$
+
+/* height=fit: the height at which the plot area shows xrange and yrange at
+   the aspect ratio (1 unless aspect_ratio is a number) with nothing left
+   over, for the given width (700 by default) and margins.  Without a margin
+   option the margins are Aximar's fixed ones, emitted explicitly so other
+   hosts lay the plot out the same way.  diagram=true falls back to the
+   default square size when either range is automatic. */
+ax__fit_height_parts(opts) := block(
+  [xr, yr, w, ar, m, parts: [], h],
+  xr: ax__layout_opt_value(opts, xrange, false),
+  yr: ax__layout_opt_value(opts, yrange, false),
+  if xr = false or yr = false then (
+    if ax__layout_opt_value(opts, diagram, false) = true
+      then return(["\"height\":700"])
+      else error("height=fit needs both xrange and yrange")),
+  w: ax__layout_opt_value(opts, width, 700),
+  if not numberp(float(w)) then error("height=fit needs a numeric width, got", w),
+  ar: ax__layout_opt_value(opts, aspect_ratio, true),
+  ar: if ar = true or ar = false then 1 else float(ar),
+  m: ax__layout_opt_value(opts, margin, false),
+  if m = false then (m: [50, 30, 40, 50], parts: [ax__margin_json(m)])
+  else if not listp(m) then m: [m, m, m, m],
+  h: m[3] + m[4]
+     + (w - m[1] - m[2]) * ar * abs(float(yr[2] - yr[1])) / abs(float(xr[2] - xr[1])),
+  endcons(sconcat("\"height\":", string(round(h))), parts))$
 
 /* margin=10 (all sides) or margin=[l, r, t, b] → "margin":{...} (pixels) */
 ax__margin_json(val) := block([m],
@@ -2176,14 +2232,15 @@ ax__build_layout_3d(opts) := block(
   if not member(height, map(lhs, opts)) and not ax__autosize_p(opts) then
     parts: endcons("\"height\":450", parts),
   parts: append(parts, ax__common_layout_parts(opts)),
-  if not member(paper_bgcolor, map(lhs, opts)) then
-    parts: endcons("\"paper_bgcolor\":\"white\"", parts),
-  if not member(plot_bgcolor, map(lhs, opts)) then
-    scene_parts: endcons("\"bgcolor\":\"white\"", scene_parts),
-  /* Axis line and grid colors for white background */
-  xaxis_parts: endcons("\"gridcolor\":\"#ddd\",\"linecolor\":\"#ddd\",\"linewidth\":1,\"zerolinecolor\":\"black\",\"zerolinewidth\":1", xaxis_parts),
-  yaxis_parts: endcons("\"gridcolor\":\"#ddd\",\"linecolor\":\"#ddd\",\"linewidth\":1,\"zerolinecolor\":\"black\",\"zerolinewidth\":1", yaxis_parts),
-  zaxis_parts: endcons("\"gridcolor\":\"#ddd\",\"linecolor\":\"#ddd\",\"linewidth\":1,\"zerolinecolor\":\"black\",\"zerolinewidth\":1", zaxis_parts),
+  block([tc: ax__theme_colors(opts)],
+    parts: append(parts, ax__theme_text_parts(tc)),
+    if not member(paper_bgcolor, map(lhs, opts)) then
+      parts: endcons(sconcat("\"paper_bgcolor\":", ax__json_string(tc[1])), parts),
+    if not member(plot_bgcolor, map(lhs, opts)) then
+      scene_parts: endcons(sconcat("\"bgcolor\":", ax__json_string(tc[1])), scene_parts),
+    xaxis_parts: endcons(ax__theme_axis_json(tc, true), xaxis_parts),
+    yaxis_parts: endcons(ax__theme_axis_json(tc, true), yaxis_parts),
+    zaxis_parts: endcons(ax__theme_axis_json(tc, true), zaxis_parts)),
   scene_parts: endcons(sconcat("\"xaxis\":{", simplode(xaxis_parts, ","), "}"), scene_parts),
   scene_parts: endcons(sconcat("\"yaxis\":{", simplode(yaxis_parts, ","), "}"), scene_parts),
   scene_parts: endcons(sconcat("\"zaxis\":{", simplode(zaxis_parts, ","), "}"), scene_parts),
@@ -2944,13 +3001,19 @@ ax__build_layout_polar(opts) := block(
   if not member(height, map(lhs, opts)) and not ax__autosize_p(opts) then
     parts: endcons("\"height\":450", parts),
   parts: append(parts, ax__common_layout_parts(opts)),
-  if not member(plot_bgcolor, map(lhs, opts)) then
-    parts: endcons("\"plot_bgcolor\":\"white\"", parts),
-  if not member(paper_bgcolor, map(lhs, opts)) then
-    parts: endcons("\"paper_bgcolor\":\"white\"", parts),
+  block([tc: ax__theme_colors(opts)],
+    parts: append(parts, ax__theme_text_parts(tc)),
+    if not member(plot_bgcolor, map(lhs, opts)) then
+      parts: endcons(sconcat("\"plot_bgcolor\":", ax__json_string(tc[1])), parts),
+    if not member(paper_bgcolor, map(lhs, opts)) then
+      parts: endcons(sconcat("\"paper_bgcolor\":", ax__json_string(tc[1])), parts),
+    /* the polar plot area is polar.bgcolor; plot_bgcolor sets it too */
+    polar_parts: endcons(sconcat("\"bgcolor\":",
+                                 ax__json_string(ax__layout_opt_value(opts, plot_bgcolor, tc[1]))),
+                         polar_parts),
+    radial_parts: endcons(ax__theme_axis_json(tc, false), radial_parts),
+    angular_parts: endcons(ax__theme_axis_json(tc, false), angular_parts)),
   /* Axis line and grid colors for polar axes */
-  radial_parts: endcons("\"gridcolor\":\"#ddd\",\"linecolor\":\"#ddd\",\"linewidth\":1", radial_parts),
-  angular_parts: endcons("\"gridcolor\":\"#ddd\",\"linecolor\":\"#ddd\",\"linewidth\":1", angular_parts),
   polar_parts: endcons(sconcat("\"radialaxis\":{", simplode(radial_parts, ","), "}"), polar_parts),
   polar_parts: endcons(sconcat("\"angularaxis\":{", simplode(angular_parts, ","), "}"), polar_parts),
   parts: endcons(sconcat("\"polar\":{", simplode(polar_parts, ","), "}"), parts),

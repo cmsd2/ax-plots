@@ -54,5 +54,6 @@ ax_polar(θ/10, [θ, 0, 6*%pi], title="Archimedean Spiral")$
 | `layout_raw` | JSON object string merged into the Plotly layout; see `ax_draw2d` |
 | `plot_bgcolor` | Plot-area background color (default `"white"`) |
 | `paper_bgcolor` | Outer figure background color (default `"white"`) |
+| `theme` | `"light"` (default) or `"dark"`: background, grid, axis and text colours |
 
 See also: `ax_plot2d`, `ax_draw2d`

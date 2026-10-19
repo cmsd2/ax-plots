@@ -193,6 +193,34 @@ ax_draw2d(
 Like the draw package, `filled_func` is sticky when given at the top level:
 it applies to every later `explicit` until reset with `filled_func=false`.
 
+#### Diagrams
+
+`diagram=true` sets up a figure that is a picture rather than a graph: axes,
+grid, legend and hover off, equal x and y scales (`aspect_ratio=true`) and
+`height=fit`.  Options given explicitly win, e.g. `diagram=true, xaxis=true`.
+
+`height=fit` computes the height at which the plot area shows `xrange` and
+`yrange` at the aspect ratio (1, or `aspect_ratio` if it is a number) with no
+space left over, for the `width` (700 by default) and margins.  It needs both
+ranges.  Without a `margin` option it assumes Aximar's fixed margins
+(left 50, right 30, top 40, bottom 50 pixels) and sets them explicitly, so
+other hosts lay the plot out the same way.  With `diagram=true` and automatic
+ranges, the height falls back to the default square plot.
+
+`theme="dark"` uses dark backgrounds, light text and grid colours suited to a
+dark host, and makes uncoloured `vector` arrows and shape outlines light too.
+`plot_bgcolor` / `paper_bgcolor` still override the background.  Aximar makes
+plot backgrounds transparent, so there the theme mostly sets the text and
+line colours.
+
+```maxima
+ax_draw2d(
+  polygon([[0,0], [1,1], [2,0], [1,-1]], fill_color="rgba(150,150,230,0.3)"),
+  label(["I", 1, 0], font_size=20),
+  diagram=true, theme="dark", xrange=[-0.2, 2.2], yrange=[-1.2, 1.2]
+)$
+```
+
 #### Shapes
 
 `rectangle`, `ellipse`, `hline` and `vline` are drawn as Plotly layout
@@ -345,7 +373,7 @@ Options use Plotly-native naming and apply to subsequent objects until overridde
 | `constrain` | How `aspect_ratio` is met: `"range"` (Plotly default, widens a range) or `"domain"` (shrinks the plot area, keeps `xrange`/`yrange` exactly) |
 | `margin` | Plot margins in pixels: a number for all sides, or `[l, r, t, b]` |
 | `width` | Fixed plot width in pixels (`auto` to size to the container) |
-| `height` | Fixed plot height in pixels (`auto` to size to the container) |
+| `height` | Fixed plot height in pixels (`auto` to size to the container, `fit` to match the ranges; see Diagrams) |
 | `autosize` | `true` drops both default sizes so the plot fills its container |
 | `legend_position` | `"top-right"`, `"top-left"`, `"bottom-right"`, `"bottom-left"` (inside), `"top"`, `"bottom"` (outside, horizontal), `"right"`, or `[x, y]` in paper coordinates |
 | `legend_orientation` | `"h"` / `"v"` (or `horizontal` / `vertical`) |
@@ -362,5 +390,7 @@ Options use Plotly-native naming and apply to subsequent objects until overridde
 | `logx` / `logy` | Log-scale axes (`true`/`false`) |
 | `plot_bgcolor` | Plot-area background color (default `"white"`) |
 | `paper_bgcolor` | Outer figure background color (default `"white"`) |
+| `theme` | `"light"` (default) or `"dark"`: background, grid, axis and text colours (see Diagrams) |
+| `diagram` | `true`: no axes, grid, legend or hover; equal scales; `height=fit` (see Diagrams) |
 
 See also: `ax_plot2d`, `ax_draw3d`, `ax_polar`, `draw2d`

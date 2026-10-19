@@ -158,7 +158,7 @@ size; now documented.  `autosize`, `legend_position` and
 | ~~`title` styling~~ | `title_font_size`, `title_x`, `title_align` | `layout.title.font`, `.x`, `.xanchor` |
 | `font` | `font_family`, `font_size`, `font_color` (global) | `layout.font` |
 | ~~Legend~~ | ~~`legend_position`~~ (`"top-right"`, `"bottom"`, `[x, y]`), ~~`legend_orientation`~~, ~~`legend_title`~~ | `layout.legend` |
-| Theme | `theme="light"/"dark"/"auto"` | background / grid / text colours; today the white `plot_bgcolor` / `paper_bgcolor` defaults fight dark hosts |
+| ~~Theme~~ | ~~`theme="light"/"dark"`~~ **done** (2D, 3D, polar); `"auto"` needs the host to report its mode | background / grid / text colours, plus template `annotationdefaults` / `shapedefaults` so uncoloured arrows and shape outlines follow the theme |
 
 ### Axes
 
@@ -231,13 +231,19 @@ Grunt work left in the Penrose–Carter notebook after § 1–5:
 4. **Label along a line.**  Place a label on a segment at fraction t, on
    one side, with the angle computed.  The angle must be in screen space,
    which depends on the host's margins (§ Host constraints).
-5. **Fit sizing and label-aware ranges.**  With `aspect_ratio=true`,
-   derive `height` from `width` and the ranges; extend the autorange to
-   cover label positions (Plotly's autorange ignores annotations).
+5. ~~**Fit sizing**~~ **done**: `height=fit` derives the height from
+   `width`, margins, the aspect ratio and both ranges.  **Label-aware
+   ranges** remain open.  Plotly's autorange ignores annotations; an
+   invisible marker trace sized to each label's text was tried and
+   dropped: marker padding is symmetric (an anchored label needs twice
+   its size) and Plotly abandons padding larger than the axis, so it
+   over-widened one axis and did nothing to the other.  Doing it properly
+   needs the data extent and pixel scale before Plotly's layout.
 6. **Coordinate transforms.**  A `transform=f` option on curves and
    polygons, as in the draw package, plus `reflect="x"` / `"y"`.
-7. **Diagram preset.**  One option for axes, grid and legend off, aspect
-   locked and no hover.
+7. ~~**Diagram preset.**~~ **Done**: `diagram=true` turns axes, grid,
+   legend and hover off, locks the aspect ratio and sets `height=fit`;
+   explicit options win.
 
 ## Host constraints
 
@@ -266,10 +272,9 @@ aspect-ratio default height).  Either have aximar load the
 mxpm-installed `ax-plots` when present, or sync the bundle as part of
 each ax-plots release; otherwise every item above lands twice.
 
-**Registry `numerics` lacks `compile_grid`.**  The community-index
-version of `numerics` (commit `77481d4`) predates `compile_grid`, so
-with an `mxpm install numerics` setup the `animate()` fast path never
-engages.  Publishing a newer `numerics` to the index fixes it.
+~~**Registry `numerics` lacks `compile_grid`.**~~  Fixed: the index now
+pins `numerics` at `8fa7bf7`, which has `compile_grid`, so
+`mxpm install numerics` setups get the `animate()` fast path.
 
 ## Suggested order
 
@@ -283,7 +288,7 @@ engages.  Publishing a newer `numerics` to the index fixes it.
 6. Static image output (§ 4.1) for headless verification.
 7. ~~Raw escape hatch (§ 4.3).~~ Done.
 8. ~~Shapes~~, annotations, per-point markers, ~~axes/tick options~~ (done,
-   2D, except `tickangle`), ~~legend title~~, theme.
+   2D, except `tickangle`), ~~legend title~~, ~~theme~~ (light/dark).
 9. Figure builder (§ 5), subplots, 3D parity.
 
 Items 1–5 are enough to reproduce the Penrose–Carter diagram at

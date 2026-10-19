@@ -513,6 +513,60 @@ errcatch(ax__build_trace_2d(lines([[0, 0], [1, 1]], decoration = "snake",
                                   decoration_wavelength = 0), ax__default_style()));
 [];
 
+/* --- theme, diagram preset, height=fit ---------------------------------- */
+
+/* light (default): white backgrounds, no text colour or template */
+block([j: ax__build_layout_2d([])],
+  [numberp(ssearch("\"plot_bgcolor\":\"white\"", j)), ssearch("\"template\"", j)]);
+[true, false];
+
+/* dark: dark backgrounds, light text, and template defaults so arrows and
+   shape outlines show */
+block([j: ax__build_layout_2d([theme = "dark"])],
+  [numberp(ssearch("\"paper_bgcolor\":\"#111111\"", j)),
+   numberp(ssearch("\"font\":{\"color\":\"#e8e8e8\"}", j)),
+   numberp(ssearch("\"annotationdefaults\":{\"arrowcolor\":\"#e8e8e8\"}", j)),
+   numberp(ssearch("\"shapedefaults\":{\"line\":{\"color\":\"#e8e8e8\"}}", j))]);
+[true, true, true, true];
+
+/* an explicit background still wins over the theme */
+numberp(ssearch("\"plot_bgcolor\":\"navy\"", ax__build_layout_2d([theme = dark, plot_bgcolor = "navy"])));
+true;
+
+/* 3D and polar follow the theme; polar's plot area takes plot_bgcolor */
+[numberp(ssearch("\"bgcolor\":\"#111111\"", ax__build_layout_3d([theme = dark]))),
+ numberp(ssearch("\"bgcolor\":\"red\"", ax__build_layout_polar([theme = dark, plot_bgcolor = "red"])))];
+[true, true];
+
+errcatch(ax__build_layout_2d([theme = "neon"]));
+[];
+
+/* height=fit: margins + plot-area width x aspect x (y span / x span) */
+ax__fit_height_parts([height = fit, xrange = [0, 2], yrange = [0, 1], width = 500, margin = 0]);
+["\"height\":250"];
+
+/* without a margin option, Aximar's margins are assumed and emitted */
+ax__fit_height_parts([height = fit, xrange = [0, 2], yrange = [0, 1], aspect_ratio = 2]);
+["\"margin\":{\"l\":50.0,\"r\":30.0,\"t\":40.0,\"b\":50.0}", "\"height\":710"];
+
+errcatch(ax__build_layout_2d([height = fit, xrange = [0, 1]]));
+[];
+
+/* diagram=true: axes, grid, legend and hover off, aspect locked, height fitted */
+block([j: ax__build_layout_2d([diagram = true, xrange = [-3.45, 3.45], yrange = [-1.9, 1.9]])],
+  [numberp(ssearch("\"visible\":false", j)), numberp(ssearch("\"showgrid\":false", j)),
+   numberp(ssearch("\"showlegend\":false", j)), numberp(ssearch("\"hovermode\":false", j)),
+   numberp(ssearch("\"scaleanchor\":\"x\"", j)), numberp(ssearch("\"height\":431", j))]);
+[true, true, true, true, true, true];
+
+/* explicit options override the preset; without ranges it falls back to a square plot */
+block([j: ax__build_layout_2d([diagram = true, xaxis = true])],
+  [numberp(ssearch("\"xaxis\":{\"visible\":true", j)), numberp(ssearch("\"height\":700", j))]);
+[true, true];
+
+ax_draw2d(explicit(x^2, x, -1, 1), diagram = true, theme = "dark", xrange = [-1, 1], yrange = [0, 1]);
+done;
+
 /* --- animate() wrapper -------------------------------------------------- */
 
 /* detection */

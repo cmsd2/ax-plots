@@ -72,5 +72,6 @@ As in `ax_draw2d`, arguments may be lists of objects, and
 | `logx` / `logy` / `logz` | Log-scale axes (`true`/`false`) |
 | `plot_bgcolor` | Scene background color (default `"white"`; maps to `scene.bgcolor`) |
 | `paper_bgcolor` | Outer figure background color (default `"white"`) |
+| `theme` | `"light"` (default) or `"dark"`: background, grid, axis and text colours |
 
 See also: `ax_plot2d`, `ax_draw2d`, `ax_polar`, `draw3d`
