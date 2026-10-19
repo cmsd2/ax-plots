@@ -211,9 +211,39 @@ true;
 errcatch(ax__build_trace_2d(polygon([[0, 0], [1, 0]]), ax__default_style()));
 [];
 
-/* label/vector are not animatable yet */
-errcatch(ax_draw2d(animate(label(["k", k, 0]), [k, 0, 1, 3])));
-[];
+/* labels, arrows and shapes can be animated */
+ax_draw2d(animate(label(["k", k, 0]), [k, 0, 1, 3]),
+          animate(vector([0, 0], [k, 1]), [k, 0, 1, 3]),
+          animate(hline(k), [k, 0, 1, 3]));
+done;
+
+/* each frame carries the whole annotations array: static and animated
+   items in argument order, the animated ones rebuilt at the frame's value */
+block([lay: [["annotations", ["{\"text\":\"static\"}"], false],
+             ["annotations", [], [label(["L", k, 0]), ax__default_style()]]],
+       fr],
+  fr: ax__build_frames_2d([], k, [0.0, 0.5], lay),
+  [length(fr),
+   numberp(ssearch("\"layout\":{\"annotations\":[{\"text\":\"static\"},{\"text\":\"L\",\"x\":0.5", second(fr))),
+   ssearch("\"shapes\"", second(fr))]);
+[2, true, false];
+
+/* shapes likewise, under "shapes" */
+block([fr: ax__build_frames_2d([], k, [0.0, 2.0], [["shapes", [], [hline(k), ax__default_style()]]])],
+  [numberp(ssearch("\"layout\":{\"shapes\":[", second(fr))), numberp(ssearch("2.0", second(fr)))]);
+[true, true];
+
+/* no animated layout objects: frames have no layout */
+ssearch("\"layout\"", first(ax__build_frames_2d([], k, [0.0, 1.0], [["annotations", ["{}"], false]])));
+false;
+
+/* zero formats as "0" (slider labels and float label text) */
+[ax__format_animate_value(0.0), ax__format_animate_value(-0.0), ax__format_animate_value(0)];
+["0", "0", "0"];
+
+/* float label text, e.g. the animate parameter, shows 3 significant figures */
+numberp(ssearch("\"text\":\"0.123\"", first(first(args(ax__build_trace_2d(label([0.123456, 0, 0]), ax__default_style()))))));
+true;
 
 /* --- legendgroup -------------------------------------------------------- */
 

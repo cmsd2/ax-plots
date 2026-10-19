@@ -742,6 +742,23 @@ ax__shape_result_p(r) := not atom(r) and op(r) = 'ax__shapes$
 /* Results that go into the layout rather than the trace list */
 ax__layout_result_p(r) := ax__annotation_result_p(r) or ax__shape_result_p(r)$
 
+/* The layout array a layout result belongs in */
+ax__layout_result_key(r) := if ax__annotation_result_p(r) then "annotations" else "shapes"$
+
+/* LAY is the list of layout objects in argument order, each
+   [key, jsons, spec]: key "annotations" or "shapes", jsons the items as
+   first drawn, and spec false (static) or [inner, style] for an object
+   inside animate(...).  The items for KEY, as first drawn: */
+ax__layout_items(lay, key) :=
+  apply(append, map(second, sublist(lay, lambda([e], e[1] = key))))$
+
+/* The items for KEY at parameter value P: animated objects rebuilt there */
+ax__layout_items_at(lay, key, param, p) :=
+  apply(append, map(lambda([e],
+      if e[3] = false then e[2]
+      else first(args(ax__build_trace_2d(subst(p, param, e[3][1]), e[3][2])))),
+    sublist(lay, lambda([e], e[1] = key))))$
+
 /* Splice "key":[items] into a layout JSON object string */
 ax__layout_add_array(layout_json, key, items) := block([body],
   /* Trim the trailing "}" */
@@ -806,7 +823,9 @@ ax__trace_label_2d(obj, style) := block(
       error("label: each item must be [text, x, y], got:", it),
     ax__check_numeric_data([it[2]], "label", "x"),
     ax__check_numeric_data([it[3]], "label", "y"),
-    parts: [sconcat("\"text\":", ax__json_string(it[1])),
+    /* float text, e.g. an animate parameter, shows 3 significant figures */
+    parts: [sconcat("\"text\":", ax__json_string(
+              if floatnump(it[1]) then ax__format_animate_value(it[1]) else it[1])),
             sconcat("\"x\":", ax__float_to_json(it[2])),
             sconcat("\"y\":", ax__float_to_json(it[3])),
             "\"xref\":\"x\"", "\"yref\":\"y\"", "\"showarrow\":false"],
@@ -2422,7 +2441,8 @@ ax__layout_opt_value(opts, key, default) := block([found: false, v: default],
 
 /* Format a parameter value for slider step labels: ~3 sig figs. */
 ax__format_animate_value(v) := block([fv: float(v)],
-  if fv = 0 then "0"
+  /* fv is a float, and 0.0 = 0 is false in Maxima */
+  if abs(fv) = 0.0 then "0"
   else if abs(fv) < 0.001 or abs(fv) >= 10000 then
     printf(false, "~,3e", fv)
   else
@@ -2431,12 +2451,12 @@ ax__format_animate_value(v) := block([fv: float(v)],
 /* Build the JSON for one Plotly frame.
    TRACE_JSONS is a list of already-serialised trace strings.
    INDICES is the parallel list of base-trace indices each updates. */
-ax__build_frame_json(name, trace_jsons, indices) :=
-  ax__json_obj([
+ax__build_frame_json(name, trace_jsons, indices, [layout]) :=
+  ax__json_obj(append([
     ["name",   ax__json_string(name)],
     ["data",   ax__json_list(trace_jsons)],
-    ["traces", sconcat("[", simplode(map(string, indices), ","), "]")]
-  ])$
+    ["traces", sconcat("[", simplode(map(string, indices), ","), "]")]],
+    if layout = [] or first(layout) = false then [] else [["layout", first(layout)]]))$
 
 /* True if a spec [inner, style, _, _] is eligible for the fast
    path: inner is an explicit(...) wrapper with numeric x-range,
@@ -2514,10 +2534,15 @@ ax__explicit_trace_json_from_samples(xs_json, ys, style, label) := block(
    typically 3-7x faster on common expressions, scaling better with
    grid size.  All other shapes (parametric, contour, vector field,
    …) keep the per-frame subst path. */
-ax__build_frames_2d(animate_specs, param, param_values) := block(
+ax__build_frames_2d(animate_specs, param, param_values, [lay_opt]) := block(
   [sample_caches, frames, n_frames, i, p, all_traces, all_indices,
    spec_idx, spec, inner, style, start_idx, count,
-   raw, traces_list, idx, frame, cache, label],
+   raw, traces_list, idx, frame, cache, label, lay, anim_keys, layout_json],
+  /* layout objects (labels, arrows, shapes) inside animate(...): each frame
+     carries the whole annotations / shapes array for every key that has
+     an animated object, since Plotly replaces those arrays whole */
+  lay: if lay_opt = [] then [] else first(lay_opt),
+  anim_keys: unique(map(first, sublist(lay, lambda([e], e[3] # false)))),
   /* Pre-compute the bulk samples for fast-path specs.  Split the
      conditional into separate statements; `c: if ... then ... else
      ..., next-stmt' parses ambiguously in Maxima's `,'-separated
@@ -2563,7 +2588,10 @@ ax__build_frames_2d(animate_specs, param, param_values) := block(
         )
       )
     ),
-    frame: ax__build_frame_json(string(i), all_traces, all_indices),
+    layout_json: if anim_keys = [] then false
+                 else ax__json_obj(map(lambda([k],
+                        [k, ax__json_list(ax__layout_items_at(lay, k, param, p))]), anim_keys)),
+    frame: ax__build_frame_json(string(i), all_traces, all_indices, layout_json),
     frames: endcons(frame, frames)
   ),
   frames)$
@@ -2686,7 +2714,7 @@ ax_draw2d([ax__args]) := ax__draw2d_impl(ax__args, false)$
    new registry entry is made (re-renders keep the original entry). */
 ax__draw2d_impl(ax__args_in, reuse_view_id) := block(
   [ax__args, signal_names, has_signals, view_id, reactive_json,
-   traces, annotations: [], shapes: [], layout_opts, style,
+   traces, lay: [], annotations, shapes, layout_opts, style,
    animate_specs, anim_param, anim_lo, anim_hi, anim_n, has_anim,
    param_values, frames_jsons, layout_json, slider_json, updatemenus_json],
   ax__args_in: ax__expand_args(ax__args_in),
@@ -2744,19 +2772,20 @@ ax__draw2d_impl(ax__args_in, reuse_view_id) := block(
         p_lo:    float(anim_lo),
         raw0:    ax__build_trace_2d(subst(p_lo, anim_param, inner), ostyle),
         if ax__layout_result_p(raw0) then
-          error("ax_draw2d: animate(...) does not support", op(inner), "yet"),
-        traces0: if listp(raw0) then raw0 else [raw0],
-        start_idx: length(traces),
-        count:     length(traces0),
-        animate_specs: endcons([inner, ostyle, start_idx, count], animate_specs),
-        traces: append(traces, traces0)
+          /* labels, arrows and shapes live in the layout: each frame
+             carries the whole annotations / shapes arrays (see lay) */
+          lay: endcons([ax__layout_result_key(raw0), first(args(raw0)), [inner, ostyle]], lay)
+        else (
+          traces0: if listp(raw0) then raw0 else [raw0],
+          start_idx: length(traces),
+          count:     length(traces0),
+          animate_specs: endcons([inner, ostyle, start_idx, count], animate_specs),
+          traces: append(traces, traces0))
       )
     else if ax__is_draw_object(item) then
       block([result: ax__build_trace_2d(item, style)],
-        if ax__annotation_result_p(result) then
-          annotations: append(annotations, first(args(result)))
-        else if ax__shape_result_p(result) then
-          shapes: append(shapes, first(args(result)))
+        if ax__layout_result_p(result) then
+          lay: endcons([ax__layout_result_key(result), first(args(result)), false], lay)
         else if listp(result) then
           traces: append(traces, result)
         else
@@ -2764,13 +2793,15 @@ ax__draw2d_impl(ax__args_in, reuse_view_id) := block(
     else error("ax_draw2d: unrecognized argument:", item)
   ),
   layout_json: ax__build_layout_2d(layout_opts),
+  annotations: ax__layout_items(lay, "annotations"),
+  shapes: ax__layout_items(lay, "shapes"),
   if annotations # [] then
     layout_json: ax__layout_add_annotations(layout_json, annotations),
   if shapes # [] then
     layout_json: ax__layout_add_array(layout_json, "shapes", shapes),
   if has_anim then (
     param_values:     ax__animate_param_values(anim_lo, anim_hi, anim_n),
-    frames_jsons:     ax__build_frames_2d(animate_specs, anim_param, param_values),
+    frames_jsons:     ax__build_frames_2d(animate_specs, anim_param, param_values, lay),
     slider_json:      ax__build_slider_json(param_values, anim_param, layout_opts),
     updatemenus_json: ax__build_updatemenus_json(layout_opts),
     layout_json:      ax__layout_add_animation(layout_json, slider_json, updatemenus_json),
