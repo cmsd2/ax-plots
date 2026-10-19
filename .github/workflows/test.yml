@@ -34,13 +34,14 @@ jobs:
           sudo apt-get update
           sudo apt-get install -y sbcl libblas-dev liblapack-dev
           echo "version=$(sbcl --version | awk '{print $2}')" >> "$GITHUB_OUTPUT"
+          echo "image=${ImageOS}-${ImageVersion}" >> "$GITHUB_OUTPUT"
 
       - name: Cache Maxima
         id: cache-maxima
         uses: actions/cache@v4
         with:
           path: ~/maxima
-          key: maxima-${{ env.MAXIMA_VERSION }}-sbcl-${{ steps.sbcl.outputs.version }}-${{ runner.os }}-${{ env.ImageOS }}
+          key: maxima-${{ env.MAXIMA_VERSION }}-sbcl-${{ steps.sbcl.outputs.version }}-${{ steps.sbcl.outputs.image }}
 
       - name: Build Maxima
         if: steps.cache-maxima.outputs.cache-hit != 'true'
@@ -86,7 +87,7 @@ jobs:
           path: |
             ~/quicklisp
             ~/.cache/common-lisp
-          key: quicklisp-sbcl-${{ steps.sbcl.outputs.version }}-${{ runner.os }}-${{ env.ImageOS }}
+          key: quicklisp-sbcl-${{ steps.sbcl.outputs.version }}-${{ steps.sbcl.outputs.image }}
 
       - name: Install numerics
         if: matrix.numerics
@@ -107,16 +108,16 @@ jobs:
           WANT_NUMERICS: ${{ matrix.numerics }}
           WANT_REACTIVE: ${{ matrix.reactive }}
         run: |
-          have() {
-            maxima --very-quiet --batch-string="print(\"HAVE\", is(errcatch(load(\"$1\")) # []))\$" 2>&1 \
-              | grep -E '^HAVE ' | awk '{print $2}'
-          }
           status=0
           for pkg in numerics reactive; do
             want_var="WANT_${pkg^^}"
-            got=$(have "$pkg")
+            out=$(maxima --very-quiet --batch-string="print(\"HAVE\", is(errcatch(load(\"$pkg\")) # []))\$" 2>&1)
+            got=$(echo "$out" | grep -E '^HAVE ' | awk '{print $2}')
             echo "$pkg: want ${!want_var}, have ${got:-unknown}"
-            [ "$got" = "${!want_var}" ] || status=1
+            if [ "$got" != "${!want_var}" ]; then
+              status=1
+              echo "::group::load(\"$pkg\") output"; echo "$out"; echo "::endgroup::"
+            fi
           done
           if [ "$WANT_NUMERICS" = true ]; then
             cg=$(maxima --very-quiet --batch-string='load("numerics")$ print("HAVE", not (?fboundp(compile_grid) = false))$' 2>&1 \
