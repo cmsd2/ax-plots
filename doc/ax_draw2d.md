@@ -95,8 +95,19 @@ ax_draw2d(
 
 `label`, `vector` and `polygon` take the same arguments as in the `draw`
 package.  `label` and `vector` are drawn as Plotly annotations: they never
-appear in the legend, and are not yet supported inside `animate(...)` or in
-`ax_draw3d`.
+appear in the legend, and are not yet supported in `ax_draw3d`.  They can be
+animated: inside `animate(...)` they are rebuilt for each frame.  A label
+whose text is a float, such as the animation parameter, shows it to 3
+significant figures:
+
+```maxima
+ax_draw2d(
+  parametric(cos(s), sin(s), s, 0, 2*%pi, color="gray"),
+  animate(vector([0, 0], [cos(t), sin(t)], color="red"), [t, 0, 2*%pi, 24]),
+  animate(label([t, 1.25*cos(t), 1.25*sin(t)]), [t, 0, 2*%pi, 24]),
+  aspect_ratio=true, xrange=[-1.6, 1.6], yrange=[-1.6, 1.6]
+)$
+```
 
 ```maxima
 ax_draw2d(
@@ -228,7 +239,7 @@ shapes: they never appear in the legend or take hover.  `rectangle` and
 `ellipse` take the draw package's arguments.  The outline uses `color`,
 `line_width` and `dash`; `rectangle` and `ellipse` are filled only when
 `fill_color` is set.  `layer="below"` draws a shape underneath the data.
-Like `label`, shapes are not yet supported inside `animate(...)`.
+Like `label`, shapes can be animated, e.g. `animate(vline(cos(t)), [t, 0, %pi])`.
 
 ```maxima
 ax_draw2d(

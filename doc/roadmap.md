@@ -74,8 +74,9 @@ the existing reuse of `explicit` / `parametric` / `points` / `implicit`.
 `label`, `vector` and `polygon` are **done** (2D) with the draw-package
 calling forms below.  `label` and `vector` emit layout annotations
 (builders return `ax__annotations([...])`, collected by
-`ax__draw2d_impl`); they are rejected inside `animate(...)` for now (see
-open question 1) and are not yet in `ax_draw3d`.  Label options:
+`ax__draw2d_impl`); inside `animate(...)` they, and shapes, are rebuilt
+per frame (each frame's `layout` carries the whole annotations / shapes
+array), and they are not yet in `ax_draw3d`.  Label options:
 `font_size` / `font_color` / `font_family`, `label_alignment` (xanchor),
 `label_valign` (yanchor), `label_angle` (degrees CCW, negated into
 Plotly's clockwise `textangle`) and draw's `label_orientation`.  Vector
@@ -296,10 +297,9 @@ roughly the fidelity of the source slide.
 
 ## Open questions
 
-1. `label` via text traces (hoverable, legend-able, no rotation) or
-   annotations (rotation, arrows, but layout-level so harder to
-   animate per frame)?  Possibly both: annotations by default, text
-   traces when the label participates in `animate()` frames.
+1. ~~`label` via text traces or annotations?~~  Resolved: annotations,
+   which also animate: frames carry `layout.annotations` (and
+   `layout.shapes`), applied by Plotly's animate with `redraw: true`.
 2. LaTeX in labels: Plotly only renders `$...$` with MathJax loaded,
    while aximar ships KaTeX.  Unicode-only for v1, or a renderer hook
    that typesets with KaTeX?
