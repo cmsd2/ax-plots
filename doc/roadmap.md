@@ -200,13 +200,44 @@ is clockwise, `label_angle` is counterclockwise.
 
 ## 5. API shape
 
+- ~~**Lists and groups.**~~ **Done** (2D, 3D).  List arguments are
+  spliced, so `ax_draw2d(objs, title=...)` replaces
+  `apply(ax_draw2d, append(objs, [...]))`; `group(objs..., opt=val)`
+  applies options to its objects only.  Both expand before the main loop,
+  so the reactive path sees a plain argument list.
 - **Figure builder.**  An incremental figure value
-  (`f: ax_figure()$  f: ax_add(f, lines(...))$  ax_show(f)`) replacing
-  the hand-rolled `objs: endcons(...)` + `apply(ax_draw2d, ...)`
-  pattern.  Should desugar to the same `ax_draw2d` argument list so the
-  reactive path (`ax__replot`) keeps working.
+  (`f: ax_figure()$  f: ax_add(f, lines(...))$  ax_show(f)`).  Less
+  pressing now that lists work: `objs: endcons(..., objs)` then
+  `ax_draw2d(objs)` covers most of it.  Should desugar to the same
+  `ax_draw2d` argument list so the reactive path (`ax__replot`) keeps
+  working.
 - **Sticky vs per-object options** (§ 1.2): support both, document the
   precedence.
+
+## 6. Diagram helpers
+
+Grunt work left in the Penrose–Carter notebook after § 1–5:
+
+1. ~~**Lists and groups**~~ (§ 5).  **Done.**
+2. ~~**Path decorations.**~~ **Done** (2D).  `decoration="snake"` /
+   `"zigzag"` on `lines` / `explicit` / `parametric`, with
+   `decoration_wavelength`, `decoration_amplitude`, `decoration_pre`,
+   `decoration_post` (TikZ's segment length, amplitude, pre/post length).
+   End heads default the straight end to half a wavelength.  Data units, so
+   it assumes `aspect_ratio=true`.  Specification and a plot2d/gnuplot reference
+   implementation: https://gist.github.com/cmsd2/b19d20316b62719e10cd9e3840cdf2d2
+3. ~~**Label pixel offsets.**~~ **Done.**  `label_offset=[dx, dy]` →
+   annotation `xshift` / `yshift`.
+4. **Label along a line.**  Place a label on a segment at fraction t, on
+   one side, with the angle computed.  The angle must be in screen space,
+   which depends on the host's margins (§ Host constraints).
+5. **Fit sizing and label-aware ranges.**  With `aspect_ratio=true`,
+   derive `height` from `width` and the ranges; extend the autorange to
+   cover label positions (Plotly's autorange ignores annotations).
+6. **Coordinate transforms.**  A `transform=f` option on curves and
+   polygons, as in the draw package, plus `reflect="x"` / `"y"`.
+7. **Diagram preset.**  One option for axes, grid and legend off, aspect
+   locked and no hover.
 
 ## Host constraints
 

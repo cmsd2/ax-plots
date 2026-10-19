@@ -130,6 +130,7 @@ ax__default_style() := [
   [label_valign, false],    /* label: top / middle / bottom of the point (Plotly yanchor) */
   [label_orientation, false], /* label: horizontal / vertical (draw-compatible) */
   [label_angle, false],     /* label: degrees counterclockwise; overrides label_orientation */
+  [label_offset, false],    /* label: [dx, dy] shift in pixels, dy up (Plotly xshift/yshift) */
   [head_size, false],       /* vector: arrowhead scale relative to line width (Plotly arrowsize) */
   [head_style, false],      /* vector: arrowhead shape 0–8 (Plotly arrowhead) */
   [head_both, false],       /* vector: heads at both ends (draw-compatible) */
@@ -138,6 +139,11 @@ ax__default_style() := [
   [head_start, false],      /* ...: arrowhead at the first point, pointing backwards */
   [head_count, 0],          /* ...: arrowheads evenly spaced (by arc length) along the curve */
   [head_direction, "tangent"], /* ...: "tangent" (local slope) or "chord" (overall direction) */
+  [decoration, false],      /* lines/explicit/parametric: "snake" or "zigzag" along the path */
+  [decoration_amplitude, false],  /* ...: data units; default wavelength / 4 */
+  [decoration_wavelength, false], /* ...: data units; default path length / 10 */
+  [decoration_pre, false],  /* ...: straight length at the start; default 0, or half a wavelength with head_start */
+  [decoration_post, false], /* ...: straight length at the end; default 0, or half a wavelength with head_end */
   [filled_func, false],     /* explicit: true = fill to y=0; g(x) = fill between f and g (draw-compatible) */
   [legendgroup, false],     /* traces sharing a group toggle together in the legend */
   [line_shape, false],      /* "linear" / "spline" / "hv" / "vh" / "hvh" / "vhv" */
@@ -179,13 +185,14 @@ ax__trace_option_names : [color, fill_color, opacity, line_width, dash,
   boxpoints, boxmean, hole,
   /* label */
   font_size, font_color, font_family,
-  label_alignment, label_valign, label_orientation, label_angle,
+  label_alignment, label_valign, label_orientation, label_angle, label_offset,
   /* vector */
   head_size, head_style, head_both,
   /* polygon */
   transparent,
   /* curves: arrowheads, fill between */
   head_end, head_start, head_count, head_direction, filled_func,
+  decoration, decoration_amplitude, decoration_wavelength, decoration_pre, decoration_post,
   legendgroup, line_shape,
   /* shapes */
   layer]$
@@ -241,6 +248,37 @@ ax__split_object_options(obj, style) := block([a, k, st],
   st: style,
   for i from k + 1 thru length(a) do st: ax__apply_option(st, a[i]),
   [funmake(op(obj), firstn(a, k)), st])$
+
+/* Top-level arguments may be lists (spliced in place, at any depth) and
+   group(obj, ..., opt=val, ...), which expands to its objects with the
+   group's options added to each one.  Options inside a group apply to its
+   objects only; each object's own options still win.  Groups nest. */
+ax__expand_args(args_in) := block([out: []],
+  for item in args_in do
+    if listp(item) then out: append(out, ax__expand_args(item))
+    else if not atom(item) and op(item) = 'group then out: append(out, ax__expand_group(item))
+    else out: endcons(item, out),
+  out)$
+
+ax__expand_group(g) := block([opts: [], kids: []],
+  for a in args(g) do
+    if ax__is_object_option(a) then opts: endcons(a, opts)
+    else if ax__is_layout_option(a) then
+      error("group: layout options go outside the group, got:", a)
+    else kids: endcons(a, kids),
+  map(lambda([k], ax__with_options(k, opts)), ax__expand_args(kids)))$
+
+/* Insert options before an object's own trailing options */
+ax__with_options(obj, opts) := block([a, k],
+  if ax__is_animate(obj) then
+    return(funmake('animate, [ax__with_options(first(args(obj)), opts), second(args(obj))])),
+  if not ax__is_draw_object(obj) then
+    error("group: expected draw objects and options, got:", obj),
+  if opts = [] then return(obj),
+  a: args(obj),
+  k: length(a),
+  while k > 0 and ax__is_object_option(a[k]) do k: k - 1,
+  funmake(op(obj), append(firstn(a, k), opts, rest(a, k))))$
 
 /* Check that every element of a data list is numeric after float(), or an
    explicit gap (false, inf, minf, und, ind → null in the JSON).  Errors name
@@ -593,6 +631,7 @@ ax__trace_explicit_2d(obj, style) := block(
       ",\"showlegend\":false,\"hoverinfo\":\"skip\"}"),
     style: ax__style_set(style, fill, "tonexty")
   ),
+  [xs, ys]: ax__decorate(xs, ys, style),
   heads: ax__curve_heads(xs, ys, style),
   parts: [
     sconcat("\"x\":", ax__float_list_to_json(heads[1])),
@@ -613,7 +652,7 @@ ax__trace_parametric_2d(obj, style) := block(
   n: ax__style_get(style, nticks),
   if n = false then n: 500,
   data: ax__sample_parametric_2d(xexpr, yexpr, tvar, tlo, thi, n),
-  heads: ax__curve_heads(data[1], data[2], style),
+  heads: apply(ax__curve_heads, endcons(style, ax__decorate(data[1], data[2], style))),
   parts: [
     sconcat("\"x\":", ax__float_list_to_json(heads[1])),
     sconcat("\"y\":", ax__float_list_to_json(heads[2])),
@@ -675,6 +714,7 @@ ax__trace_lines_2d(obj, style) := block(
   ),
   ax__check_numeric_data(xs, "lines", "x"),
   ax__check_numeric_data(ys, "lines", "y"),
+  [xs, ys]: ax__decorate(xs, ys, style),
   heads: ax__curve_heads(xs, ys, style),
   parts: [
     sconcat("\"x\":", ax__float_list_to_json(heads[1])),
@@ -731,9 +771,10 @@ ax__label_font_json(style) := block([parts, sz, fc, fam],
    Same calling form as the draw package.  label_angle is degrees
    counterclockwise (Plotly's textangle is clockwise, so it is negated). */
 ax__trace_label_2d(obj, style) := block(
-  [items, xa, ya, ang, ori, fontj, op_val, ht, common],
+  [items, xa, ya, ang, ori, off, fontj, op_val, ht, common],
   items: args(obj),
   if items = [] then error("label: expected label([text, x, y], ...)"),
+  off: ax__style_get(style, label_offset),
   xa: ax__style_get(style, label_alignment),
   ya: ax__style_get(style, label_valign),
   ang: ax__style_get(style, label_angle),
@@ -749,6 +790,11 @@ ax__trace_label_2d(obj, style) := block(
     common: endcons(sconcat("\"yanchor\":", ax__json_string(ya)), common),
   if ang # false then
     common: endcons(sconcat("\"textangle\":", ax__float_to_json(-ang)), common),
+  if off # false then (
+    if not (listp(off) and length(off) = 2 and numberp(float(off[1])) and numberp(float(off[2]))) then
+      error("label: label_offset must be [dx, dy] in pixels, got:", off),
+    common: append(common, [sconcat("\"xshift\":", ax__float_to_json(off[1])),
+                            sconcat("\"yshift\":", ax__float_to_json(off[2]))])),
   if fontj # false then
     common: endcons(sconcat("\"font\":", fontj), common),
   if op_val # false and op_val # 1.0 then
@@ -954,6 +1000,109 @@ ax__trace_raw(obj) := block([a: args(obj)],
    head_start prepends such a point ahead of the first point so the first
    head has a "previous" point and points backwards.
    Returns [xs, ys, mode, extra_parts]. */
+/* Path decorations, as in TikZ: decoration="snake" (sine wave) or "zigzag"
+   replaces a curve by a wave that follows it, offset along the curve's
+   normal in data units (so it looks right with aspect_ratio=true).  The
+   first decoration_pre and last decoration_post of length stay straight;
+   the wavelength is adjusted so a whole number of waves fits, so the wave
+   ends back on the path.  Runs separated by gaps are decorated separately.
+   Returns [xs, ys]. */
+ax__decorate(xs, ys, style) := block([deco, kind, runs: [], run: [], out: []],
+  deco: ax__style_get(style, decoration),
+  if deco = false or deco = 'none or deco = "none" then return([xs, ys]),
+  if member(deco, ['snake, "snake"]) then kind: "snake"
+  else if member(deco, ['zigzag, "zigzag"]) then kind: "zigzag"
+  else error("decoration: expected \"snake\" or \"zigzag\", got:", deco),
+  for p in map("[", xs, ys) do block([x: float(p[1]), y: float(p[2])],
+    if numberp(x) and numberp(y) then run: cons([x, y], run)
+    else (if run # [] then runs: cons(reverse(run), runs), run: [])),
+  if run # [] then runs: cons(reverse(run), runs),
+  runs: reverse(runs),
+  /* the curve's end heads sit on the first and last runs only */
+  for k: 1 thru length(runs) do block([st: style],
+    if k > 1 then st: ax__style_set(st, head_start, false),
+    if k < length(runs) then st: ax__style_set(st, head_end, false),
+    if out # [] then out: endcons([false, false], out),
+    out: append(out, ax__decorate_run(runs[k], kind, st))),
+  [map(first, out), map(second, out)])$
+
+/* Positive number option, or `dflt` when unset */
+ax__decoration_length(style, key, dflt) := block([v: ax__style_get(style, key)],
+  if v = false then dflt
+  else block([f: float(v)],
+    if not numberp(f) or f < 0 then
+      error(sconcat(string(key), ": expected a non-negative number, got:"), v),
+    f))$
+
+ax__decorate_run(pts, kind, style) := block(
+  [n, xa, ya, cum, L, nx, ny, wl, amp, pre, post, D, m, w, per, tol, ents,
+   seg: 0, wave, before: [], mid: [], after: []],
+  n: length(pts),
+  if n < 2 then return(pts),
+  xa: fillarray(make_array(any, n), map(first, pts)),
+  ya: fillarray(make_array(any, n), map(second, pts)),
+  cum: make_array(any, n),
+  cum[0]: 0.0,
+  for i: 1 thru n - 1 do
+    cum[i]: cum[i - 1] + sqrt((xa[i] - xa[i - 1])^2 + (ya[i] - ya[i - 1])^2),
+  L: cum[n - 1],
+  if L <= 0 then return(pts),
+  /* unit left normal of each segment; a zero-length segment borrows a neighbour's */
+  nx: make_array(any, n - 1), ny: make_array(any, n - 1),
+  for k: 0 thru n - 2 do block([dx: xa[k + 1] - xa[k], dy: ya[k + 1] - ya[k], d],
+    d: sqrt(dx^2 + dy^2),
+    if d > 0 then (nx[k]: -dy / d, ny[k]: dx / d) else (nx[k]: false, ny[k]: false)),
+  for k: 1 thru n - 2 do if nx[k] = false then (nx[k]: nx[k - 1], ny[k]: ny[k - 1]),
+  for k: n - 3 step -1 thru 0 do if nx[k] = false then (nx[k]: nx[k + 1], ny[k]: ny[k + 1]),
+  wl:   ax__decoration_length(style, decoration_wavelength, L / 10),
+  if wl <= 0 then error("decoration_wavelength: must be positive"),
+  amp:  ax__decoration_length(style, decoration_amplitude, wl / 4),
+  pre:  ax__decoration_length(style, decoration_pre,
+          if ax__style_get(style, head_start) = true then wl / 2 else 0.0),
+  post: ax__decoration_length(style, decoration_post,
+          if ax__style_get(style, head_end) = true then wl / 2 else 0.0),
+  D: L - pre - post,
+  if D <= 0 then return(pts),
+  m: max(1, round(D / wl)),
+  w: D / m,
+  per: if kind = "snake" then 16 else 4,
+  tol: 1e-9 * L,
+  /* offset along the normal at arc length s */
+  wave: lambda([s, j], block([f],
+    /* phase in the current wave; exact for the wave's own samples (index j),
+       so the wave starts and ends exactly on the path */
+    if j # false then f: float(mod(j, per) / per)
+    else (f: (s - pre) / w, f: f - floor(f)),
+    if kind = "snake" then amp * sin(2 * float(%pi) * f)
+    else amp * (if f < 0.25 then 4 * f else if f < 0.75 then 2 - 4 * f else 4 * f - 4))),
+  /* wave samples [s, -1], plus the path's own vertices [s, i] inside the
+     decorated part so the wave follows bends between samples */
+  ents: makelist([pre + w * j / per, -1, j], j, 0, per * m),
+  for i: 0 thru n - 1 do
+    if cum[i] > pre + tol and cum[i] < pre + D - tol then ents: cons([cum[i], i, false], ents),
+  ents: sort(ents, lambda([a, b], is(a[1] < b[1]))),
+  for e in ents do block([s: e[1], i: e[2], px, py, qx, qy, off, d],
+    if i >= 0 then (
+      px: xa[i], py: ya[i],
+      qx: nx[max(i - 1, 0)] + nx[min(i, n - 2)],
+      qy: ny[max(i - 1, 0)] + ny[min(i, n - 2)],
+      d: sqrt(qx^2 + qy^2),
+      if d > 1e-12 then (qx: qx / d, qy: qy / d)
+      else (qx: nx[max(i - 1, 0)], qy: ny[max(i - 1, 0)])
+    ) else block([seglen, t],
+      while seg < n - 2 and cum[seg + 1] < s do seg: seg + 1,
+      seglen: cum[seg + 1] - cum[seg],
+      t: if seglen > 0 then min(1.0, max(0.0, (s - cum[seg]) / seglen)) else 0.0,
+      px: xa[seg] + t * (xa[seg + 1] - xa[seg]),
+      py: ya[seg] + t * (ya[seg + 1] - ya[seg]),
+      qx: nx[seg], qy: ny[seg]),
+    off: wave(s, e[3]),
+    mid: cons([px + off * qx, py + off * qy], mid)),
+  for i: 0 thru n - 1 do (
+    if cum[i] < pre - tol then before: cons([xa[i], ya[i]], before),
+    if cum[i] > pre + D + tol then after: cons([xa[i], ya[i]], after)),
+  append(reverse(before), reverse(mid), reverse(after)))$
+
 ax__curve_heads(xs, ys, style) := block(
   [he, hs0, hc, chord, n, fx, fy, fxa, fya, cuma, segs, total, look, targets,
    heads, qassoc, q0, eps: 1e-4, lw, hsz, sz, c, ox, oy, osz, k, q, mparts],
@@ -2483,6 +2632,7 @@ ax__draw2d_impl(ax__args_in, reuse_view_id) := block(
    traces, annotations: [], shapes: [], layout_opts, style,
    animate_specs, anim_param, anim_lo, anim_hi, anim_n, has_anim,
    param_values, frames_jsons, layout_json, slider_json, updatemenus_json],
+  ax__args_in: ax__expand_args(ax__args_in),
   /* === Reactive: detect signals BEFORE resolving (so we know what
      to put in the _reactive block), then resolve so the sampler
      never sees signal noun forms. === */
@@ -2594,6 +2744,7 @@ ax__draw3d_impl(ax__args_in, reuse_view_id) := block(
    traces, layout_opts, style,
    animate_specs, anim_param, anim_lo, anim_hi, anim_n, has_anim,
    param_values, frames_jsons, layout_json, slider_json, updatemenus_json],
+  ax__args_in: ax__expand_args(ax__args_in),
   /* === Reactive: detect signals BEFORE resolving, then resolve so
      the sampler never sees signal noun forms. === */
   signal_names: ax__collect_signals_in_args(ax__args_in),
