@@ -38,6 +38,9 @@ ax_draw3d(
 )$
 ```
 
+As in `ax_draw2d`, arguments may be lists of objects, and
+`group(obj, ..., opt=val, ...)` applies options to the objects in it only.
+
 #### Style Options
 
 | Option | Default | Description |

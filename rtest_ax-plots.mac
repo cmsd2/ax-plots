@@ -404,6 +404,115 @@ true;
 numberp(ssearch("\"colorway\":[\"red\",\"#00f\"]", ax__build_layout_2d([colorway = [red, "#00f"]])));
 true;
 
+/* --- lists and group() -------------------------------------------------- */
+
+/* lists are spliced at any depth */
+ax__expand_args([lines([0, 1], [0, 1]), [points([1, 2]), [color = "red"]]]);
+[lines([0, 1], [0, 1]), points([1, 2]), color = "red"];
+
+/* group options go before each object's own options, so the object's win */
+ax__expand_args([group(lines([0, 1], [0, 1], color = "blue"), points([1, 2]),
+                       color = "green", hoverinfo = "skip")]);
+[lines([0, 1], [0, 1], color = "green", hoverinfo = "skip", color = "blue"),
+ points([1, 2], color = "green", hoverinfo = "skip")];
+
+/* nested groups: inner options after outer ones; lists inside groups; animate */
+ax__expand_args([group(group([explicit(x, x, 0, 1)], dash = "dot"),
+                       animate(explicit(a*x, x, 0, 1), [a, 0, 1]), color = "red")]);
+[explicit(x, x, 0, 1, color = "red", dash = "dot"),
+ animate(explicit(a*x, x, 0, 1, color = "red"), [a, 0, 1])];
+
+/* showlegend inside a group is the per-object option */
+ax__expand_args([group(lines([0, 1], [0, 1]), showlegend = false)]);
+[lines([0, 1], [0, 1], showlegend = false)];
+
+errcatch(ax__expand_args([group(lines([0, 1], [0, 1]), title = "T")]));
+[];
+
+errcatch(ax__expand_args([group(3)]));
+[];
+
+/* ax_draw2d / ax_draw3d accept a list of objects */
+ax_draw2d([lines([0, 1], [0, 1]), group(points([1, 2]), color = "red")], title = "L");
+done;
+
+ax_draw3d([lines([[0, 0, 0], [1, 1, 1]])]);
+done;
+
+/* --- label_offset ------------------------------------------------------- */
+
+block([j: first(first(args(ax__build_trace_2d(label(["a", 0, 0], label_offset = [-3, 8]),
+                                              ax__default_style()))))],
+  [numberp(ssearch("\"xshift\":-3.0", j)), numberp(ssearch("\"yshift\":8.0", j))]);
+[true, true];
+
+errcatch(ax__build_trace_2d(label(["a", 0, 0], label_offset = 3), ax__default_style()));
+[];
+
+/* --- decoration --------------------------------------------------------- */
+
+/* no decoration: data unchanged */
+ax__decorate([0, 1], [0, 0], ax__default_style());
+[[0, 1], [0, 0]];
+
+/* zigzag on [0, 1] with wavelength 0.5, amplitude 0.1: two waves, peaks at quarter waves */
+ax__decorate([0, 1], [0, 0], ax__apply_option(ax__apply_option(ax__apply_option(ax__default_style(),
+  decoration = "zigzag"), decoration_wavelength = 0.5), decoration_amplitude = 0.1));
+[[0.0, 0.125, 0.25, 0.375, 0.5, 0.625, 0.75, 0.875, 1.0],
+ [0.0, 0.1, 0.0, -0.1, 0.0, 0.1, 0.0, -0.1, 0.0]];
+
+/* the wavelength is adjusted to fit a whole number of waves, and the wave
+   ends back on the path */
+block([d: ax__decorate([0, 1], [0, 0], ax__apply_option(ax__apply_option(ax__default_style(),
+         decoration = "zigzag"), decoration_wavelength = 0.3))],
+  [length(d[1]), last(d[1]), is(abs(last(d[2])) < 1e-12)]);
+[13, 1.0, true];
+
+/* pre and post lengths stay straight: path vertices kept, wave between */
+block([d: ax__decorate([0, 1], [0, 0], ax__apply_option(ax__apply_option(ax__apply_option(
+         ax__default_style(), decoration = "snake"), decoration_pre = 0.2), decoration_post = 0.3))],
+  [first(d[1]), second(d[1]), d[1][length(d[1]) - 1], last(d[1]), is(lmax(map(abs, d[2])) > 0)]);
+[0.0, 0.2, 0.7, 1.0, true];
+
+/* head_end defaults decoration_post to half a wavelength, so the head points along the path */
+block([d: ax__decorate([0, 1], [0, 0], ax__apply_option(ax__apply_option(ax__default_style(),
+         decoration = "snake"), head_end = true))],
+  [d[1][length(d[1]) - 1], d[2][length(d[1]) - 1], last(d[1])]);
+[0.95, 0.0, 1.0];
+
+/* the wave follows a curved path: a decorated unit quarter circle stays within the amplitude */
+block([d: ax__decorate(makelist(cos(t*%pi/100), t, 0, 50), makelist(sin(t*%pi/100), t, 0, 50),
+         ax__apply_option(ax__apply_option(ax__default_style(), decoration = "snake"),
+           decoration_amplitude = 0.05)), r],
+  r: map(lambda([x, y], sqrt(x^2 + y^2)), d[1], d[2]),
+  [is(lmin(r) > 0.949), is(lmax(r) < 1.051), is(lmax(r) > 1.04)]);
+[true, true, true];
+
+/* gaps split the path; each run is decorated separately */
+block([d: ax__decorate([0, 1, false, 2, 3], [0, 0, false, 0, 0],
+         ax__apply_option(ax__default_style(), decoration = "zigzag"))],
+  [length(sublist(d[1], lambda([v], v = false))), first(d[1]), last(d[1])]);
+[1, 0.0, 3.0];
+
+/* with gaps, head_end straightens only the last run's end */
+block([d: ax__decorate([0, 1, false, 2, 3], [0, 0, false, 0, 0],
+         ax__apply_option(ax__apply_option(ax__default_style(), decoration = "zigzag"),
+           head_end = true))],
+  [d[1][40], d[1][41], d[1][42], d[1][length(d[1]) - 1], d[2][length(d[1]) - 1]]);
+[0.975, 1.0, false, 2.95, 0.0];
+
+/* explicit and parametric are decorated too */
+numberp(ssearch("lines+markers", ax__build_trace_2d(
+  parametric(cos(t), sin(t), t, 0, 1, decoration = "snake", head_end = true), ax__default_style())));
+true;
+
+errcatch(ax__build_trace_2d(lines([[0, 0], [1, 1]], decoration = "wave"), ax__default_style()));
+[];
+
+errcatch(ax__build_trace_2d(lines([[0, 0], [1, 1]], decoration = "snake",
+                                  decoration_wavelength = 0), ax__default_style()));
+[];
+
 /* --- animate() wrapper -------------------------------------------------- */
 
 /* detection */

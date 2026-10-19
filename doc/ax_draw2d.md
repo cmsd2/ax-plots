@@ -112,6 +112,10 @@ ax_draw2d(
   `font_color` (defaults to `color`) and `font_family` to style it.
 - `label_alignment` (`left` / `center` / `right`) and `label_valign`
   (`top` / `middle` / `bottom`) say which side of the text sits on the point.
+- `label_offset=[dx, dy]` shifts the text by pixels (dy up), so it stays the
+  same distance from its point whatever the axis ranges.  With
+  `label_valign=bottom` and `label_offset=[0, 4]` the text sits just above
+  the point.
 - `label_angle` rotates the text, in degrees counterclockwise;
   `label_orientation=vertical` is the same as `label_angle=90`.
 - `vector` uses `color` and `line_width` for the arrow, `head_size`
@@ -136,15 +140,43 @@ overall direction instead: from the point one head-spacing of length back
 
 A head's tip sits on its data point and the head extends back over the
 curve (Plotly can only offset markers backwards).  For a wavy line such as a
-photon, end the data with a short straight run about one head long, so the
-wiggle stops where the head begins, as TikZ users do with `post length`:
+photon, use a decoration (below): with `head_end=true` it leaves a straight
+run at the end, so the head points along the line and the wiggle stops near
+where the head begins.
+
+#### Decorations
+
+`decoration="snake"` (a sine wave) or `decoration="zigzag"` on `lines`,
+`explicit` or `parametric` draws a wave that follows the curve, like TikZ's
+decorations, so a wavy photon or a zigzag singularity is just a straight
+line with a decoration:
 
 ```maxima
-photon: append(
-  makelist([s, 0.03*sin(12*%pi*s)], s, makelist(i/100, i, 0, 100)),
-  [[1.15, 0]])$
-ax_draw2d(lines(photon, head_end=true, head_size=1.2), aspect_ratio=true)$
+ax_draw2d(
+  lines([[0, 0], [1, 1]], decoration="snake", decoration_wavelength=0.12,
+        decoration_amplitude=0.03, head_end=true, head_size=1.2),
+  lines([[-1, 1.2], [1, 1.2]], decoration="zigzag", decoration_wavelength=0.09,
+        decoration_amplitude=0.025, color="red"),
+  aspect_ratio=true
+)$
 ```
+
+- `decoration_wavelength` (default: the curve's length / 10) and
+  `decoration_amplitude` (default: wavelength / 4) are in data units, and the
+  wave is offset along the curve's normal in data space, so it looks right
+  with `aspect_ratio=true`.  The wavelength is adjusted slightly so that a
+  whole number of waves fits and the wave ends back on the curve.
+- `decoration_pre` and `decoration_post` leave the first and last stretch of
+  the curve straight.  They default to 0, except that `head_start=true` /
+  `head_end=true` make them half a wavelength, so end heads point along the
+  curve rather than along the last wiggle.
+- Heads placed along the curve with `head_count` follow the wave; add
+  `head_direction="chord"` to point them along the curve instead.
+- A line with gaps is decorated piece by piece.
+
+The algorithm is specified independently of ax-plots, with a plain-Maxima
+reference implementation that draws with `plot2d`/gnuplot, in
+[this gist](https://gist.github.com/cmsd2/b19d20316b62719e10cd9e3840cdf2d2).
 
 `explicit` accepts the draw package's `filled_func`: `filled_func=true` fills
 between the curve and y = 0, and `filled_func=g(x)` fills between the curve
@@ -221,15 +253,31 @@ ax_draw2d(
 `showlegend` inside an object hides (or shows) that trace's legend entry; at
 the top level `showlegend` is the layout option for the whole legend.
 
-#### Programmatic Use
+#### Lists and Groups
 
-To build a figure in a loop, collect objects and options in a list and pass
-it with `apply`:
+Any argument may be a list of objects (and options); lists are spliced in
+place, at any depth, so a figure built in a loop can be passed directly:
 
 ```maxima
-objs: makelist(lines([0, 1], [0, k], color="gray", hoverinfo="skip"), k, 1, 5)$
-apply(ax_draw2d, append(objs, [title="Fan", aspect_ratio=true]))$
+objs: makelist(lines([0, 1], [0, k]), k, 1, 5)$
+ax_draw2d(objs, title="Fan", aspect_ratio=true)$
 ```
+
+`group(obj, ..., opt=val, ...)` gives every object in it the group's
+options, as if each were written inside the object.  The options apply to
+the group only, and an object's own options still win.  Groups may contain
+lists and other groups:
+
+```maxima
+ax_draw2d(
+  group(objs, color="gray", line_width=1, hoverinfo="skip"),
+  group(lines([0, 1], [0, 2.5], color="red"), lines([0, 1], [0, 5.5]), dash="dot"),
+  title="Fan"
+)$
+```
+
+Layout options such as `title` can't go in a group.  `ax_draw3d` accepts
+lists and groups the same way.
 
 #### Style Options
 
@@ -255,6 +303,7 @@ Options use Plotly-native naming and apply to subsequent objects until overridde
 | `label_valign` | auto | Label anchor: `top`, `middle`, `bottom` |
 | `label_angle` | 0 | Label rotation, degrees counterclockwise |
 | `label_orientation` | `horizontal` | `vertical` rotates labels 90° |
+| `label_offset` | none | Label shift `[dx, dy]` in pixels, dy up |
 | `head_size` | 1 | Arrowhead scale (vector) |
 | `head_style` | 1 | Arrowhead shape 0–8 (vector) |
 | `head_both` | false | Arrowheads at both ends (vector) |
@@ -262,6 +311,9 @@ Options use Plotly-native naming and apply to subsequent objects until overridde
 | `head_end` / `head_start` | false | Arrowhead at the end / start of a curve |
 | `head_count` | 0 | Arrowheads evenly spaced along a curve |
 | `head_direction` | `"tangent"` | Curve arrowheads follow the local direction (`"tangent"`) or the overall direction (`"chord"`) |
+| `decoration` | none | `"snake"` or `"zigzag"` wave along a curve (see Decorations) |
+| `decoration_wavelength` / `decoration_amplitude` | length / 10, wavelength / 4 | Wave size, in data units |
+| `decoration_pre` / `decoration_post` | 0 (half a wavelength with an end head) | Straight length left at the start / end |
 | `line_shape` | `"linear"` | Line interpolation: `"linear"`, `"spline"`, or steps `"hv"`, `"vh"`, `"hvh"`, `"vhv"` |
 | `layer` | `"above"` | Shapes: draw `"above"` or `"below"` the data |
 | `filled_func` | false | `explicit` only: `true` fills to y = 0, `g(x)` fills between the curve and g |
