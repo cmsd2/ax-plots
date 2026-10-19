@@ -268,16 +268,75 @@ defaults.  Until then ax-plots docs should state the 700 px cap and
 fixed margins.
 
 **Bundled copy drift.**  Aximar embeds its own `ax_plotting.mac`
-(`crates/aximar-core/src/maxima/ax_plotting.mac`, 1474 lines at
-v0.14.0) loaded at session start, which has fallen behind this package
-(2214 lines; e.g. missing `logx`/`logy`, background defaults, the
-aspect-ratio default height).  Either have aximar load the
-mxpm-installed `ax-plots` when present, or sync the bundle as part of
-each ax-plots release; otherwise every item above lands twice.
+(`crates/aximar-core/src/maxima/ax_plotting.mac`) loaded at session
+start.  By v0.14.0 it had fallen well behind this package (2266 lines
+against 3116; no 0.2.0 features, and it read `signal_meta`
+positionally, which breaks with the current `reactive`).  Aximar
+v0.15.0 re-syncs it to ax-plots 0.2.0 with two local changes: no
+`load(...)` lines, and delivery through kernel-events' `emit_display`
+when that is loaded.  The longer-term fix is § Packaging below.
 
 ~~**Registry `numerics` lacks `compile_grid`.**~~  Fixed: the index now
 pins `numerics` at `8fa7bf7`, which has `compile_grid`, so
 `mxpm install numerics` setups get the `animate()` fast path.
+
+## Packaging: Aximar installs its packages with mxpm
+
+Discussed 2026-10-19; not started.  Aximar ships two Maxima packages it
+depends on: ax-plots (bundled so the example notebooks work out of the
+box, with no `load` cell and no reliance on install locations or mxpm)
+and kernel-events (the structured event channel, which is better than
+parsing stdout).  Neither needs changes to Maxima itself.
+kernel-events' optional core patches on `cmsd2/maxima`
+`feature/kernel-events` only improve it, e.g. cooperative cancel for
+plain loops.  So the question isn't whether kernel-events can be
+"primary" without upstream Maxima changes.  It's how Aximar ships
+its dependencies.
+
+**Proposal.**  Embed mxpm as a library in Aximar (it is Rust, with a
+lib/bin split and `mxpm-core` on crates.io) and have Aximar install
+`ax-plots` and `kernel-events` as ordinary packages instead of
+embedding copies.  This ends bundle drift, lets package fixes reach
+users without an Aximar release, and makes kernel-events an ordinary
+versioned, tested package instead of a special case.
+
+Design questions to settle first:
+
+1. **Version pinning.**  The index pins one commit per package, with no
+   ranges.  If the index moves ax-plots or kernel-events past what an
+   installed Aximar understands, that Aximar breaks; kernel-events'
+   envelope schema is a contract with Aximar's parser.  Proposed: each
+   Aximar release carries a lockfile of the exact package versions it
+   was tested with, installs those, and offers newer ones as an
+   explicit update.
+2. **Offline first run.**  Embedded copies work offline.  A hybrid keeps
+   that: ship the locked package archives inside the app and install
+   them through mxpm from local paths, so they are still normal packages.
+3. **Install location.**  Shared `~/.maxima` means a developer's
+   editable installs win (good for development, risky for users with a
+   half-broken install).  An Aximar-private package directory avoids
+   conflicts but duplicates packages.
+4. **Loading.**  Replace today's session-init injection with
+   `load("ax-plots")` / `load("kernel-events")` at startup, so examples
+   still need no `load` cell.
+5. **Docker and WSL backends.**  Packages must exist inside the
+   container or WSL filesystem, so the install target is per backend.
+6. **What it doesn't fix.**  kernel-events' text-output capture is
+   SBCL-only (a no-op on GCL/CCL/ECL), and the fd-3 transport is
+   Unix + Local backend only (Docker/WSL can't inherit fd 3; Windows has
+   no fd 3).  Aximar would use kernel-events where Lisp and platform
+   allow and the stdout parser elsewhere, so both paths remain.
+   "Option C" in aximar's `docs/kernel-events-phases.md`, framed lines
+   multiplexed over stdout, would work on every backend and platform,
+   and could unify the two.
+7. **mxpm's library API.**  mxpm's library surface wasn't designed as a
+   stable API; installation probably needs to move into `mxpm-core` with
+   a deliberate interface.
+
+**Sequencing.**  Aximar v0.15.0 keeps the bundle, re-synced to 0.2.0
+(above), plus the Windows build fix and animation frame registration.
+The next Aximar release takes on this design, starting with a design
+doc in aximar covering the questions above.
 
 ## Suggested order
 
@@ -306,4 +365,5 @@ roughly the fidelity of the source slide.
    while aximar ships KaTeX.  Unicode-only for v1, or a renderer hook
    that typesets with KaTeX?
 3. Should the bundled aximar copy be retired in favour of the mxpm
-   package (see § Host constraints)?
+   package?  Leaning yes, with Aximar embedding mxpm and pinning
+   versions: see § Packaging.
