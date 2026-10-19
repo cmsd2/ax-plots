@@ -33,9 +33,10 @@ File: ax-plots.info,  Node: Introduction to ax-plots,  Next: 2D Plotting,  Up: P
 
 Interactive Plotly.js plotting for Maxima via Aximar.  Provides
 functions that reuse Maxima's ‘draw’ package object syntax (‘explicit’,
-‘parametric’, ‘points’, ‘implicit’) and add new objects (‘lines’) for
-data plotting.  Renders with Plotly instead of gnuplot.  Lists and
-ndarrays (from the ‘numerics’ package) are accepted transparently.
+‘parametric’, ‘points’, ‘implicit’, ‘label’, ‘vector’, ‘polygon’) and
+add new objects (‘lines’) for data plotting.  Renders with Plotly
+instead of gnuplot.  Lists and ndarrays (from the ‘numerics’ package)
+are accepted transparently.
 
 To use the package:
 
@@ -85,6 +86,7 @@ File: ax-plots.info,  Node: Function ax_plot2d y1 x1 y2 x2 ... options,  Up: 2D 
      * Layout Options::
      * Supported Objects::
      * Examples: Examples 2.
+     * Labels Arrows and Polygons::
      * Data Values::
      * Per-object Options::
      * Programmatic Use::
@@ -135,6 +137,7 @@ ax_plot2d(x^2, [x, -3, 3], title="Parabola", color="red")$
 * Layout Options::
 * Supported Objects::
 * Examples 2::
+* Labels Arrows and Polygons::
 * Data Values::
 * Per-object Options::
 * Programmatic Use::
@@ -214,6 +217,13 @@ Object               Syntax               Description
 ‘implicit’           ‘implicit(eqn, x,    An implicit curve f(x,y)=0
                      xlo, xhi, y, ylo,
                      yhi)’
+‘label’              ‘label([text, x,     Text at data coordinates
+                     y], ...)’            (rotatable, Unicode)
+‘vector’             ‘vector([x, y],      Arrow from (x, y) to (x+dx,
+                     [dx, dy])’           y+dy)
+‘polygon’            ‘polygon([[x1,y1],...])’Filled polygon (closed
+                     or ‘polygon(xs,      automatically)
+                     ys)’
 
 *Aximar objects:*
 
@@ -239,7 +249,7 @@ Object               Syntax               Description
                      y, ylo, yhi)’
 
 
-File: ax-plots.info,  Node: Examples 2,  Next: Data Values,  Prev: Supported Objects,  Up: Examples
+File: ax-plots.info,  Node: Examples 2,  Next: Labels Arrows and Polygons,  Prev: Supported Objects,  Up: Examples
 
 1.2.1.4 Examples
 ................
@@ -300,9 +310,44 @@ ax_draw2d(
 )$
 
 
-File: ax-plots.info,  Node: Data Values,  Next: Per-object Options,  Prev: Examples 2,  Up: Examples
+File: ax-plots.info,  Node: Labels Arrows and Polygons,  Next: Data Values,  Prev: Examples 2,  Up: Examples
 
-1.2.1.5 Data Values
+1.2.1.5 Labels, Arrows and Polygons
+...................................
+
+‘label’, ‘vector’ and ‘polygon’ take the same arguments as in the ‘draw’
+package.  ‘label’ and ‘vector’ are drawn as Plotly annotations: they
+never appear in the legend, and are not yet supported inside
+‘animate(...)’ or in ‘ax_draw3d’.
+
+ax_draw2d(
+  polygon([[0,0], [2,0], [1,1.5]], fill_color="rgba(100,100,230,0.2)", line_width=0),
+  label(["A", 0, -0.1], ["B", 2, -0.1], ["C", 1, 1.6], font_size=16),
+  label(["slope", 0.45, 0.85], label_angle=56),
+  vector([1, 0.2], [0, 0.6], color="red", head_both=true),
+  aspect_ratio=true
+)$
+
+   • Label text may contain Unicode (‘"i⁺"’, ‘"𝓘⁻"’, ‘"ρ"’).  Use
+     ‘font_size’, ‘font_color’ (defaults to ‘color’) and ‘font_family’
+     to style it.
+   • ‘label_alignment’ (‘left’ / ‘center’ / ‘right’) and ‘label_valign’
+     (‘top’ / ‘middle’ / ‘bottom’) say which side of the text sits on
+     the point.
+   • ‘label_angle’ rotates the text, in degrees counterclockwise;
+     ‘label_orientation=vertical’ is the same as ‘label_angle=90’.
+   • ‘vector’ uses ‘color’ and ‘line_width’ for the arrow, ‘head_size’
+     (relative to the line width) and ‘head_style’ (Plotly arrowhead
+     shape 0-8) for the head, and ‘head_both=true’ for heads at both
+     ends.
+   • ‘polygon’ fills with ‘fill_color’ and outlines with ‘color’,
+     ‘line_width’ and ‘dash’; ‘line_width=0’ hides the outline and
+     ‘transparent=true’ draws the outline only.
+
+
+File: ax-plots.info,  Node: Data Values,  Next: Per-object Options,  Prev: Labels Arrows and Polygons,  Up: Examples
+
+1.2.1.6 Data Values
 ...................
 
 ‘lines’ and ‘points’ data may contain exact numeric constants such as
@@ -315,7 +360,7 @@ also accepted in ‘xrange’ / ‘yrange’, e.g. ‘xrange=[-%pi, %pi]’.
 
 File: ax-plots.info,  Node: Per-object Options,  Next: Programmatic Use,  Prev: Data Values,  Up: Examples
 
-1.2.1.6 Per-object Options
+1.2.1.7 Per-object Options
 ..........................
 
 Style options can be given as trailing arguments inside an object.  They
@@ -335,7 +380,7 @@ legend.
 
 File: ax-plots.info,  Node: Programmatic Use,  Next: Style Options 2,  Prev: Per-object Options,  Up: Examples
 
-1.2.1.7 Programmatic Use
+1.2.1.8 Programmatic Use
 ........................
 
 To build a figure in a loop, collect objects and options in a list and
@@ -347,7 +392,7 @@ apply(ax_draw2d, append(objs, [title="Fan", aspect_ratio=true]))$
 
 File: ax-plots.info,  Node: Style Options 2,  Next: Layout Options 2,  Prev: Programmatic Use,  Up: Examples
 
-1.2.1.8 Style Options
+1.2.1.9 Style Options
 .....................
 
 Options use Plotly-native naming and apply to subsequent objects until
@@ -378,6 +423,21 @@ Option              Default                Description
 ‘showlegend’        auto                   Per-object only: ‘false’
                                            hides this trace's legend
                                            entry
+‘font_size’ /       Plotly default         Label text style;
+‘font_color’ /                             ‘font_color’ defaults to
+‘font_family’                              ‘color’
+‘label_alignment’   auto                   Label anchor: ‘left’,
+                                           ‘center’, ‘right’
+‘label_valign’      auto                   Label anchor: ‘top’,
+                                           ‘middle’, ‘bottom’
+‘label_angle’       0                      Label rotation, degrees
+                                           counterclockwise
+‘label_orientation’ ‘horizontal’           ‘vertical’ rotates labels 90°
+‘head_size’         1                      Arrowhead scale (vector)
+‘head_style’        1                      Arrowhead shape 0-8 (vector)
+‘head_both’         false                  Arrowheads at both ends
+                                           (vector)
+‘transparent’       false                  Polygon outline only, no fill
 ‘colorscale’        none                   Color scale for
                                            contour/heatmap
                                            (e.g. ‘"Viridis"’, ‘"Hot"’)
@@ -405,8 +465,8 @@ Option              Default                Description
 
 File: ax-plots.info,  Node: Layout Options 2,  Next: Examples 3,  Prev: Style Options 2,  Up: Examples
 
-1.2.1.9 Layout Options
-......................
+1.2.1.10 Layout Options
+.......................
 
 Option                      Description
 --------------------------------------------------------------------------
@@ -451,7 +511,7 @@ Calling forms:
 
 File: ax-plots.info,  Node: Examples 3,  Next: Style Options 3,  Prev: Layout Options 2,  Up: Examples
 
-1.2.1.10 Examples
+1.2.1.11 Examples
 .................
 
 /* Cardioid */
@@ -473,7 +533,7 @@ ax_polar(θ/10, [θ, 0, 6*%pi], title="Archimedean Spiral")$
 
 File: ax-plots.info,  Node: Style Options 3,  Next: Layout Options 3,  Prev: Examples 3,  Up: Examples
 
-1.2.1.11 Style Options
+1.2.1.12 Style Options
 ......................
 
 Option              Default                Description
@@ -490,7 +550,7 @@ Option              Default                Description
 
 File: ax-plots.info,  Node: Layout Options 3,  Prev: Style Options 3,  Up: Examples
 
-1.2.1.12 Layout Options
+1.2.1.13 Layout Options
 .......................
 
 Option            Description
@@ -1027,46 +1087,47 @@ Tag Table:
 Node: Top77
 Node: Package ax-plots189
 Node: Introduction to ax-plots444
-Node: 2D Plotting1011
-Node: Function ax_plot2d y1 x1 y2 x2 ... options1220
-Node: Examples2687
-Node: Style Options3765
-Node: Layout Options4703
-Node: Supported Objects5930
-Node: Examples 27846
-Node: Data Values9333
-Node: Per-object Options9958
-Node: Programmatic Use10599
-Node: Style Options 211009
-Node: Layout Options 214483
-Node: Examples 316700
-Node: Style Options 317165
-Node: Layout Options 317971
-Node: 3D Plotting18593
-Node: Function ax_draw3d [args]18779
-Node: Supported Draw Objects19153
-Node: Examples 419905
-Node: Style Options 420634
-Node: Layout Options 421345
-Node: Statistical Charts22341
-Node: Function ax_bar categories values22549
-Node: Examples 523348
-Node: Relevant Options24204
-Node: Layout Options 524627
-Node: Examples 625291
-Node: Relevant Options 225950
-Node: Layout Options 626346
-Node: Examples 727245
-Node: Relevant Options 327757
-Node: Field Plots28545
-Node: Function ax_contour expr xvar xlo xhi yvar ylo yhi28736
-Node: Examples 829401
-Node: Relevant Options 429948
-Node: Examples 931025
-Node: Relevant Options 531702
-Node: Examples 1032823
-Node: Relevant Options 633257
-Node: Function and variable index33914
+Node: 2D Plotting1053
+Node: Function ax_plot2d y1 x1 y2 x2 ... options1262
+Node: Examples2765
+Node: Style Options3874
+Node: Layout Options4812
+Node: Supported Objects6039
+Node: Examples 28382
+Node: Labels Arrows and Polygons9884
+Node: Data Values11627
+Node: Per-object Options12268
+Node: Programmatic Use12909
+Node: Style Options 213319
+Node: Layout Options 217842
+Node: Examples 320061
+Node: Style Options 320526
+Node: Layout Options 321332
+Node: 3D Plotting21954
+Node: Function ax_draw3d [args]22140
+Node: Supported Draw Objects22514
+Node: Examples 423266
+Node: Style Options 423995
+Node: Layout Options 424706
+Node: Statistical Charts25702
+Node: Function ax_bar categories values25910
+Node: Examples 526709
+Node: Relevant Options27565
+Node: Layout Options 527988
+Node: Examples 628652
+Node: Relevant Options 229311
+Node: Layout Options 629707
+Node: Examples 730606
+Node: Relevant Options 331118
+Node: Field Plots31906
+Node: Function ax_contour expr xvar xlo xhi yvar ylo yhi32097
+Node: Examples 832762
+Node: Relevant Options 433309
+Node: Examples 934386
+Node: Relevant Options 535063
+Node: Examples 1036184
+Node: Relevant Options 636618
+Node: Function and variable index37275
 
 End Tag Table
 

@@ -122,7 +122,18 @@ ax__default_style() := [
   [colorscale, false],      /* contour/heatmap/surface: Plotly colorscale name */
   [hover_text, false],      /* string or list of strings → Plotly hovertext */
   [hoverinfo, false],       /* e.g. "skip", "none", "x+y", "text" */
-  [showlegend, 'auto]       /* per-object only (top-level showlegend is the layout option) */
+  [showlegend, 'auto],      /* per-object only (top-level showlegend is the layout option) */
+  [font_size, false],       /* label: text size in px */
+  [font_color, false],      /* label: text colour (defaults to color) */
+  [font_family, false],     /* label: CSS font family */
+  [label_alignment, false], /* label: left / center / right of the point (Plotly xanchor) */
+  [label_valign, false],    /* label: top / middle / bottom of the point (Plotly yanchor) */
+  [label_orientation, false], /* label: horizontal / vertical (draw-compatible) */
+  [label_angle, false],     /* label: degrees counterclockwise; overrides label_orientation */
+  [head_size, false],       /* vector: arrowhead scale relative to line width (Plotly arrowsize) */
+  [head_style, false],      /* vector: arrowhead shape 0–8 (Plotly arrowhead) */
+  [head_both, false],       /* vector: heads at both ends (draw-compatible) */
+  [transparent, false]      /* polygon: true = outline only, no fill (draw-compatible) */
 ]$
 
 /* Get a style value from the style state */
@@ -153,7 +164,14 @@ ax__trace_option_names : [color, fill_color, opacity, line_width, dash,
   marker_symbol, marker_size, name, fill, colorscale, hover_text, hoverinfo,
   nticks, nbins, ncontours, showscale, bar_width,
   ngrid, arrow_scale, normalize, initial_points, t_range, dt,
-  boxpoints, boxmean, hole]$
+  boxpoints, boxmean, hole,
+  /* label */
+  font_size, font_color, font_family,
+  label_alignment, label_valign, label_orientation, label_angle,
+  /* vector */
+  head_size, head_style, head_both,
+  /* polygon */
+  transparent]$
 
 /* Options accepted only inside an object, e.g. lines(xs, ys, showlegend=false).
    At top level, showlegend is the layout option. */
@@ -163,6 +181,7 @@ ax__object_only_option_names : [showlegend]$
    takes any other draw object and an [param, lo, hi[, n]] spec;
    it is unwrapped during the scan-pass of ax_draw2d / ax_draw3d. */
 ax__draw_object_names : [explicit, parametric, points, lines, implicit,
+  label, vector, polygon,
   ax_contour, ax_heatmap, ax_bar, ax_histogram,
   ax_vector_field, ax_streamline,
   parametric_surface, ax_contour3d, ax_vector_field3d,
@@ -623,6 +642,156 @@ ax__trace_lines_2d(obj, style) := block(
     sconcat("\"line\":", ax__build_line_style(style))
   ],
   parts: append(parts, ax__build_trace_style(style, "lines")),
+  sconcat("{", simplode(parts, ","), "}"))$
+
+/* ------------------------------------------------------------------------
+ * Annotation objects: label(...) and vector(...) become Plotly layout
+ * annotations, not traces (annotations support rotated text and arrows).
+ * Their builders return ax__annotations([json, ...]); ax__draw2d_impl
+ * collects these into layout.annotations.
+ * ------------------------------------------------------------------------ */
+
+ax__annotation_result_p(r) := not atom(r) and op(r) = 'ax__annotations$
+
+/* Splice "annotations":[...] into a layout JSON object string */
+ax__layout_add_annotations(layout_json, anns) := block([body],
+  /* Trim the trailing "}" */
+  body: substring(layout_json, 1, slength(layout_json)),
+  sconcat(body, ",\"annotations\":[", simplode(anns, ","), "]}"))$
+
+/* Label font: font_size, font_color (falls back to color), font_family.
+   Returns a JSON object string, or false when nothing is set. */
+ax__label_font_json(style) := block([parts, sz, fc, fam],
+  parts: [],
+  sz: ax__style_get(style, font_size),
+  fc: ax__style_get(style, font_color),
+  if fc = false then fc: ax__style_get(style, color),
+  fam: ax__style_get(style, font_family),
+  if sz # false then
+    parts: endcons(sconcat("\"size\":", ax__float_to_json(sz)), parts),
+  if fc # false then
+    parts: endcons(sconcat("\"color\":", ax__json_string(ax__color_to_css(fc))), parts),
+  if fam # false then
+    parts: endcons(sconcat("\"family\":", ax__json_string(fam)), parts),
+  if parts = [] then false else sconcat("{", simplode(parts, ","), "}"))$
+
+/* 2D text labels: label([text, x, y], [text, x, y], ...) → annotations.
+   Same calling form as the draw package.  label_angle is degrees
+   counterclockwise (Plotly's textangle is clockwise, so it is negated). */
+ax__trace_label_2d(obj, style) := block(
+  [items, xa, ya, ang, ori, fontj, op_val, ht, common],
+  items: args(obj),
+  if items = [] then error("label: expected label([text, x, y], ...)"),
+  xa: ax__style_get(style, label_alignment),
+  ya: ax__style_get(style, label_valign),
+  ang: ax__style_get(style, label_angle),
+  ori: ax__style_get(style, label_orientation),
+  if ang = false and (ori = 'vertical or ori = "vertical") then ang: 90,
+  fontj: ax__label_font_json(style),
+  op_val: ax__style_get(style, opacity),
+  ht: ax__style_get(style, hover_text),
+  common: [],
+  if xa # false then
+    common: endcons(sconcat("\"xanchor\":", ax__json_string(xa)), common),
+  if ya # false then
+    common: endcons(sconcat("\"yanchor\":", ax__json_string(ya)), common),
+  if ang # false then
+    common: endcons(sconcat("\"textangle\":", ax__float_to_json(-ang)), common),
+  if fontj # false then
+    common: endcons(sconcat("\"font\":", fontj), common),
+  if op_val # false and op_val # 1.0 then
+    common: endcons(sconcat("\"opacity\":", ax__float_to_json(op_val)), common),
+  if stringp(ht) then
+    common: endcons(sconcat("\"hovertext\":", ax__json_string(ht)), common),
+  funmake('ax__annotations, [map(lambda([it], block([parts],
+    if not (listp(it) and length(it) = 3) then
+      error("label: each item must be [text, x, y], got:", it),
+    ax__check_numeric_data([it[2]], "label", "x"),
+    ax__check_numeric_data([it[3]], "label", "y"),
+    parts: [sconcat("\"text\":", ax__json_string(it[1])),
+            sconcat("\"x\":", ax__float_to_json(it[2])),
+            sconcat("\"y\":", ax__float_to_json(it[3])),
+            "\"xref\":\"x\"", "\"yref\":\"y\"", "\"showarrow\":false"],
+    sconcat("{", simplode(append(parts, common), ","), "}"))), items)]))$
+
+/* 2D arrow: vector([x, y], [dx, dy]) → annotation arrow from (x, y) to
+   (x+dx, y+dy), in data coordinates.  Same calling form as the draw package. */
+ax__trace_vector_2d(obj, style) := block(
+  [a, p, d, tip, parts, c, lw, hs, hst, hb, op_val, ht],
+  a: args(obj),
+  if length(a) # 2 or not listp(a[1]) or not listp(a[2])
+     or length(a[1]) # 2 or length(a[2]) # 2 then
+    error("vector: expected vector([x, y], [dx, dy]), got:", obj),
+  p: a[1], d: a[2],
+  ax__check_numeric_data(p, "vector", "origin"),
+  ax__check_numeric_data(d, "vector", "components"),
+  tip: p + d,
+  parts: [sconcat("\"x\":", ax__float_to_json(tip[1])),
+          sconcat("\"y\":", ax__float_to_json(tip[2])),
+          sconcat("\"ax\":", ax__float_to_json(p[1])),
+          sconcat("\"ay\":", ax__float_to_json(p[2])),
+          "\"xref\":\"x\"", "\"yref\":\"y\"", "\"axref\":\"x\"", "\"ayref\":\"y\"",
+          "\"text\":\"\"", "\"showarrow\":true"],
+  c: ax__style_get(style, color),
+  lw: ax__style_get(style, line_width),
+  hs: ax__style_get(style, head_size),
+  hst: ax__style_get(style, head_style),
+  hb: ax__style_get(style, head_both),
+  op_val: ax__style_get(style, opacity),
+  ht: ax__style_get(style, hover_text),
+  if c # false then
+    parts: endcons(sconcat("\"arrowcolor\":", ax__json_string(ax__color_to_css(c))), parts),
+  if lw # false then
+    parts: endcons(sconcat("\"arrowwidth\":", ax__float_to_json(lw)), parts),
+  if hs # false then
+    parts: endcons(sconcat("\"arrowsize\":", ax__float_to_json(hs)), parts),
+  if hst # false then
+    parts: endcons(sconcat("\"arrowhead\":", string(hst)), parts),
+  if hb = true then
+    parts: endcons("\"arrowside\":\"end+start\"", parts),
+  if op_val # false and op_val # 1.0 then
+    parts: endcons(sconcat("\"opacity\":", ax__float_to_json(op_val)), parts),
+  if stringp(ht) then
+    parts: endcons(sconcat("\"hovertext\":", ax__json_string(ht)), parts),
+  funmake('ax__annotations, [[sconcat("{", simplode(parts, ","), "}")]]))$
+
+/* 2D filled polygon: polygon([[x1,y1], ...]) or polygon(xs, ys) → scatter
+   with fill "toself".  The path is closed automatically.  fill_color sets
+   the fill, color/line_width/dash the outline (line_width=0 hides it);
+   transparent=true draws the outline only. */
+ax__trace_polygon_2d(obj, style) := block([a, data, xs, ys, st, parts],
+  a: args(obj),
+  if length(a) = 2 then (
+    xs: ax__maybe_list(a[1]),
+    ys: ax__maybe_list(a[2])
+  ) else if length(a) = 1 then (
+    data: ax__maybe_list(a[1]),
+    if not (listp(data) and data # [] and listp(first(data))) then
+      error("polygon: expected polygon([[x1, y1], ...]) or polygon(xs, ys)"),
+    xs: map(first, data),
+    ys: map(second, data)
+  ) else
+    error("polygon: expected polygon([[x1, y1], ...]) or polygon(xs, ys)"),
+  if length(xs) # length(ys) then
+    error("polygon: x and y lists differ in length"),
+  if length(xs) < 3 then
+    error("polygon: need at least 3 vertices"),
+  ax__check_numeric_data(xs, "polygon", "x"),
+  ax__check_numeric_data(ys, "polygon", "y"),
+  if first(xs) # last(xs) or first(ys) # last(ys) then (
+    xs: endcons(first(xs), xs),
+    ys: endcons(first(ys), ys)
+  ),
+  st: ax__style_set(style, fill,
+        if ax__style_get(style, transparent) = true then false else "toself"),
+  parts: [
+    sconcat("\"x\":", ax__float_list_to_json(xs)),
+    sconcat("\"y\":", ax__float_list_to_json(ys)),
+    "\"type\":\"scatter\"",
+    "\"mode\":\"lines\"",
+    sconcat("\"line\":", ax__build_line_style(st))
+  ],
+  parts: append(parts, ax__build_trace_style(st, "polygon")),
   sconcat("{", simplode(parts, ","), "}"))$
 
 /* 3D lines trace: lines(data) → scatter3d lines
@@ -1308,6 +1477,9 @@ ax__build_trace_2d(obj_in, style_in) := block([objop, split, obj, style],
   else if objop = points then ax__trace_points_2d(obj, style)
   else if objop = lines then ax__trace_lines_2d(obj, style)
   else if objop = implicit then ax__trace_implicit_2d(obj, style)
+  else if objop = label then ax__trace_label_2d(obj, style)
+  else if objop = vector then ax__trace_vector_2d(obj, style)
+  else if objop = polygon then ax__trace_polygon_2d(obj, style)
   else if objop = ax_contour then ax__trace_contour_2d(obj, style)
   else if objop = ax_heatmap then ax__trace_heatmap_2d(obj, style)
   else if objop = ax_bar then ax__trace_bar_2d(obj, style)
@@ -1944,7 +2116,7 @@ ax_draw2d([ax__args]) := ax__draw2d_impl(ax__args, false)$
    new registry entry is made (re-renders keep the original entry). */
 ax__draw2d_impl(ax__args_in, reuse_view_id) := block(
   [ax__args, signal_names, has_signals, view_id, reactive_json,
-   traces, layout_opts, style,
+   traces, annotations: [], layout_opts, style,
    animate_specs, anim_param, anim_lo, anim_hi, anim_n, has_anim,
    param_values, frames_jsons, layout_json, slider_json, updatemenus_json],
   /* === Reactive: detect signals BEFORE resolving (so we know what
@@ -2000,6 +2172,8 @@ ax__draw2d_impl(ax__args_in, reuse_view_id) := block(
         ostyle:  split[2],
         p_lo:    float(anim_lo),
         raw0:    ax__build_trace_2d(subst(p_lo, anim_param, inner), ostyle),
+        if ax__annotation_result_p(raw0) then
+          error("ax_draw2d: animate(...) does not support", op(inner), "yet"),
         traces0: if listp(raw0) then raw0 else [raw0],
         start_idx: length(traces),
         count:     length(traces0),
@@ -2008,13 +2182,17 @@ ax__draw2d_impl(ax__args_in, reuse_view_id) := block(
       )
     else if ax__is_draw_object(item) then
       block([result: ax__build_trace_2d(item, style)],
-        if listp(result) then
+        if ax__annotation_result_p(result) then
+          annotations: append(annotations, first(args(result)))
+        else if listp(result) then
           traces: append(traces, result)
         else
           traces: endcons(result, traces))
     else error("ax_draw2d: unrecognized argument:", item)
   ),
   layout_json: ax__build_layout_2d(layout_opts),
+  if annotations # [] then
+    layout_json: ax__layout_add_annotations(layout_json, annotations),
   if has_anim then (
     param_values:     ax__animate_param_values(anim_lo, anim_hi, anim_n),
     frames_jsons:     ax__build_frames_2d(animate_specs, anim_param, param_values),

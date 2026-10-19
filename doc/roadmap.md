@@ -71,6 +71,19 @@ the existing reuse of `explicit` / `parametric` / `points` / `implicit`.
 
 ### Must-have
 
+`label`, `vector` and `polygon` are **done** (2D) with the draw-package
+calling forms below.  `label` and `vector` emit layout annotations
+(builders return `ax__annotations([...])`, collected by
+`ax__draw2d_impl`); they are rejected inside `animate(...)` for now (see
+open question 1) and are not yet in `ax_draw3d`.  Label options:
+`font_size` / `font_color` / `font_family`, `label_alignment` (xanchor),
+`label_valign` (yanchor), `label_angle` (degrees CCW, negated into
+Plotly's clockwise `textangle`) and draw's `label_orientation`.  Vector
+options: `color`, `line_width`, `head_size` (arrowsize), `head_style`
+(arrowhead), and draw's `head_both`.  Polygon: `fill_color`, outline via
+`color` / `line_width` / `dash`, draw's `transparent`.  Arrowheads on
+curves and `fill_between` remain.
+
 | Object | Proposed syntax | Plotly mapping | Notes |
 |--------|-----------------|----------------|-------|
 | Text label | `label([text, x, y], ...)` (draw form) | `scatter` `mode:"text"` or layout `annotations` | Options: `font_size`, `font_color`, `font_family`, `text_angle`, `xanchor`/`yanchor`.  Unicode must round-trip (`i⁺`, `𝓘`, Greek).  Rotation needs annotations (`textangle`), not text traces. |
@@ -189,9 +202,9 @@ engages.  Publishing a newer `numerics` to the index fixes it.
 
 1. ~~§ 1 items 1–4 (coercion, per-object options, legend/hover, docs).~~
    Done except `legendgroup`.
-2. `label` with rotation and Unicode.
-3. `vector` and arrowheads on curves.
-4. `polygon` and `fill_between`.
+2. ~~`label` with rotation and Unicode.~~ Done (2D).
+3. ~~`vector`~~ (done, 2D) and arrowheads on curves.
+4. ~~`polygon`~~ (done, 2D) and `fill_between`.
 5. ~~`margin`, numeric `aspect_ratio`, `constrain`~~ (done), `autosize` —
    `margin` still needs the aximar renderer fix to take effect there.
 6. Static image output (§ 4.1) for headless verification.

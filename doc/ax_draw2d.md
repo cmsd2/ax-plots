@@ -13,6 +13,9 @@ Draw 2D interactive plots using Plotly.js. Accepts Maxima draw package objects a
 | `points` | `points([[x1,y1],...])` or `points(xs, ys)` | Scatter points |
 | `lines` | `lines([[x1,y1],...])` or `lines(xs, ys)` | Line plot from data |
 | `implicit` | `implicit(eqn, x, xlo, xhi, y, ylo, yhi)` | An implicit curve f(x,y)=0 |
+| `label` | `label([text, x, y], ...)` | Text at data coordinates (rotatable, Unicode) |
+| `vector` | `vector([x, y], [dx, dy])` | Arrow from (x, y) to (x+dx, y+dy) |
+| `polygon` | `polygon([[x1,y1],...])` or `polygon(xs, ys)` | Filled polygon (closed automatically) |
 
 **Aximar objects:**
 
@@ -84,6 +87,36 @@ ax_draw2d(
 )$
 ```
 
+#### Labels, Arrows and Polygons
+
+`label`, `vector` and `polygon` take the same arguments as in the `draw`
+package.  `label` and `vector` are drawn as Plotly annotations: they never
+appear in the legend, and are not yet supported inside `animate(...)` or in
+`ax_draw3d`.
+
+```maxima
+ax_draw2d(
+  polygon([[0,0], [2,0], [1,1.5]], fill_color="rgba(100,100,230,0.2)", line_width=0),
+  label(["A", 0, -0.1], ["B", 2, -0.1], ["C", 1, 1.6], font_size=16),
+  label(["slope", 0.45, 0.85], label_angle=56),
+  vector([1, 0.2], [0, 0.6], color="red", head_both=true),
+  aspect_ratio=true
+)$
+```
+
+- Label text may contain Unicode (`"i⁺"`, `"𝓘⁻"`, `"ρ"`).  Use `font_size`,
+  `font_color` (defaults to `color`) and `font_family` to style it.
+- `label_alignment` (`left` / `center` / `right`) and `label_valign`
+  (`top` / `middle` / `bottom`) say which side of the text sits on the point.
+- `label_angle` rotates the text, in degrees counterclockwise;
+  `label_orientation=vertical` is the same as `label_angle=90`.
+- `vector` uses `color` and `line_width` for the arrow, `head_size`
+  (relative to the line width) and `head_style` (Plotly arrowhead shape 0–8)
+  for the head, and `head_both=true` for heads at both ends.
+- `polygon` fills with `fill_color` and outlines with `color`, `line_width`
+  and `dash`; `line_width=0` hides the outline and `transparent=true` draws
+  the outline only.
+
 #### Data Values
 
 `lines` and `points` data may contain exact numeric constants such as
@@ -138,6 +171,15 @@ Options use Plotly-native naming and apply to subsequent objects until overridde
 | `hover_text` | none | Hover text: a string, or a list with one string per point |
 | `hoverinfo` | auto | Hover content, e.g. `"skip"` (no hover, for decorations), `"none"`, `"x+y"`, `"text"` |
 | `showlegend` | auto | Per-object only: `false` hides this trace's legend entry |
+| `font_size` / `font_color` / `font_family` | Plotly default | Label text style; `font_color` defaults to `color` |
+| `label_alignment` | auto | Label anchor: `left`, `center`, `right` |
+| `label_valign` | auto | Label anchor: `top`, `middle`, `bottom` |
+| `label_angle` | 0 | Label rotation, degrees counterclockwise |
+| `label_orientation` | `horizontal` | `vertical` rotates labels 90° |
+| `head_size` | 1 | Arrowhead scale (vector) |
+| `head_style` | 1 | Arrowhead shape 0–8 (vector) |
+| `head_both` | false | Arrowheads at both ends (vector) |
+| `transparent` | false | Polygon outline only, no fill |
 | `colorscale` | none | Color scale for contour/heatmap (e.g. `"Viridis"`, `"Hot"`) |
 | `showscale` | auto | Show/hide colorbar for contour/heatmap |
 | `ncontours` | auto | Number of contour levels (ax_contour) |

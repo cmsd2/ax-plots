@@ -126,6 +126,95 @@ true;
 numberp(ssearch("\"constrain\":\"domain\"", ax__build_layout_2d([constrain = "domain"])));
 true;
 
+/* --- label -------------------------------------------------------------- */
+
+/* label returns annotations, not traces; one per [text, x, y] item */
+ax__annotation_result_p(ax__build_trace_2d(label(["A", 0, 0], ["B", 1, 1]), ax__default_style()));
+true;
+
+length(first(args(ax__build_trace_2d(label(["A", 0, 0], ["B", 1, 1]), ax__default_style()))));
+2;
+
+block([j: first(first(args(ax__build_trace_2d(label(["i⁺", %pi/2, 1]), ax__default_style()))))],
+  [numberp(ssearch("\"text\":\"i⁺\"", j)), numberp(ssearch("\"showarrow\":false", j)),
+   ssearch("null", j)]);
+[true, true, false];
+
+/* label_angle is counterclockwise; Plotly textangle is clockwise */
+numberp(ssearch("\"textangle\":-45.0",
+  first(first(args(ax__build_trace_2d(label(["h", 0, 0], label_angle = 45), ax__default_style()))))));
+true;
+
+numberp(ssearch("\"textangle\":-90.0",
+  first(first(args(ax__build_trace_2d(label(["h", 0, 0], label_orientation = vertical), ax__default_style()))))));
+true;
+
+block([j: first(first(args(ax__build_trace_2d(
+    label(["h", 0, 0], font_size = 14, color = red, label_alignment = left, label_valign = bottom),
+    ax__default_style()))))],
+  [numberp(ssearch("\"font\":{\"size\":14.0,\"color\":\"red\"}", j)),
+   numberp(ssearch("\"xanchor\":\"left\"", j)), numberp(ssearch("\"yanchor\":\"bottom\"", j))]);
+[true, true, true];
+
+/* font_color overrides color for the text */
+numberp(ssearch("\"color\":\"blue\"",
+  first(first(args(ax__build_trace_2d(label(["h", 0, 0], color = red, font_color = blue), ax__default_style()))))));
+true;
+
+errcatch(ax__build_trace_2d(label(["h", 0]), ax__default_style()));
+[];
+
+errcatch(ax__build_trace_2d(label(["h", a, 0]), ax__default_style()));
+[];
+
+/* annotations are spliced into the layout */
+ax__layout_add_annotations("{\"width\":1}", ["{\"x\":1}", "{\"x\":2}"]);
+"{\"width\":1,\"annotations\":[{\"x\":1},{\"x\":2}]}";
+
+/* --- vector ------------------------------------------------------------- */
+
+block([j: first(first(args(ax__build_trace_2d(vector([1, 2], [3, 4]), ax__default_style()))))],
+  [numberp(ssearch("\"x\":4.0,\"y\":6.0,\"ax\":1.0,\"ay\":2.0", j)),
+   numberp(ssearch("\"axref\":\"x\"", j)), numberp(ssearch("\"showarrow\":true", j))]);
+[true, true, true];
+
+block([j: first(first(args(ax__build_trace_2d(
+    vector([0, 0], [1, 1], color = red, head_both = true, head_style = 2, head_size = 1.5),
+    ax__default_style()))))],
+  [numberp(ssearch("\"arrowcolor\":\"red\"", j)), numberp(ssearch("\"arrowside\":\"end+start\"", j)),
+   numberp(ssearch("\"arrowhead\":2", j)), numberp(ssearch("\"arrowsize\":1.5", j))]);
+[true, true, true, true];
+
+errcatch(ax__build_trace_2d(vector([0, 0, 0], [1, 1]), ax__default_style()));
+[];
+
+/* --- polygon ------------------------------------------------------------ */
+
+/* closed automatically, filled toself */
+block([j: ax__build_trace_2d(polygon([[0, 0], [1, 0], [0, 1]]), ax__default_style())],
+  [numberp(ssearch("\"x\":[0.0,1.0,0.0,0.0]", j)), numberp(ssearch("\"fill\":\"toself\"", j))]);
+[true, true];
+
+/* already-closed path is not closed twice; xs/ys form */
+numberp(ssearch("\"x\":[0.0,1.0,0.0,0.0],",
+  ax__build_trace_2d(polygon([0, 1, 0, 0], [0, 0, 1, 0]), ax__default_style())));
+true;
+
+/* transparent = outline only */
+ssearch("\"fill\"", ax__build_trace_2d(polygon([[0, 0], [1, 0], [0, 1]], transparent = true), ax__default_style()));
+false;
+
+numberp(ssearch("\"fillcolor\":\"pink\"",
+  ax__build_trace_2d(polygon([[0, 0], [1, 0], [0, 1]], fill_color = pink), ax__default_style())));
+true;
+
+errcatch(ax__build_trace_2d(polygon([[0, 0], [1, 0]]), ax__default_style()));
+[];
+
+/* label/vector are not animatable yet */
+errcatch(ax_draw2d(animate(label(["k", k, 0]), [k, 0, 1, 3])));
+[];
+
 /* --- animate() wrapper -------------------------------------------------- */
 
 /* detection */
