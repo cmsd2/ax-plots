@@ -22,6 +22,7 @@ File: ax-plots.info,  Node: Package ax-plots,  Next: Function and variable index
 * Introduction to ax-plots::
 * 2D Plotting::
 * 3D Plotting::
+* Animation and Interaction::
 * Statistical Charts::
 * Field Plots::
 
@@ -33,10 +34,12 @@ File: ax-plots.info,  Node: Introduction to ax-plots,  Next: 2D Plotting,  Up: P
 
 Interactive Plotly.js plotting for Maxima via Aximar.  Provides
 functions that reuse Maxima's ‘draw’ package object syntax (‘explicit’,
-‘parametric’, ‘points’, ‘implicit’, ‘label’, ‘vector’, ‘polygon’) and
-add new objects (‘lines’) for data plotting.  Renders with Plotly
-instead of gnuplot.  Lists and ndarrays (from the ‘numerics’ package)
-are accepted transparently.
+‘parametric’, ‘points’, ‘implicit’, ‘label’, ‘vector’, ‘polygon’,
+‘rectangle’, ‘ellipse’) and add new objects (‘lines’, shapes, charts and
+fields) for data plotting.  Plots can be animated with ‘animate’, and
+can depend on interactive parameters from the ‘reactive’ package.
+Renders with Plotly instead of gnuplot.  Lists and ndarrays (from the
+‘numerics’ package) are accepted transparently.
 
 To use the package:
 
@@ -51,9 +54,11 @@ File: ax-plots.info,  Node: 2D Plotting,  Next: 3D Plotting,  Prev: Introduction
 * Menu:
 
 * Function ax_plot2d y1 x1 y2 x2 ... options::
+* Function ax_draw2d [args]::
+* Function ax_polar expr [var min max]::
 
 
-File: ax-plots.info,  Node: Function ax_plot2d y1 x1 y2 x2 ... options,  Up: 2D Plotting
+File: ax-plots.info,  Node: Function ax_plot2d y1 x1 y2 x2 ... options,  Next: Function ax_draw2d [args],  Up: 2D Plotting
 
  -- Function: ax_plot2d (Y1, X1, Y2, X2, ..., OPTIONS)
      Plot expressions and/or data as interactive Plotly.js line charts.
@@ -84,25 +89,9 @@ File: ax-plots.info,  Node: Function ax_plot2d y1 x1 y2 x2 ... options,  Up: 2D 
      * Examples::
      * Style Options::
      * Layout Options::
-     * Supported Objects::
-     * Examples::
-     * Labels Arrows and Polygons::
-     * Arrowheads and Filled Areas::
-     * Decorations::
-     * Diagrams::
-     * Shapes::
-     * Raw Plotly::
-     * Data Values::
-     * Per-object Options::
-     * Lists and Groups::
-     * Style Options::
-     * Layout Options::
-     * Examples::
-     * Style Options::
-     * Layout Options::
 
 
-File: ax-plots.info,  Node: Examples,  Up: 2D Plotting
+File: ax-plots.info,  Node: Examples,  Next: How it works,  Up: 2D Plotting
 
 1.2.1 Examples
 --------------
@@ -191,12 +180,31 @@ Option                Description
 ‘plot_bgcolor’        Plot-area background color (default ‘"white"’)
 ‘paper_bgcolor’       Outer figure background color (default ‘"white"’)
 
-See also: ‘ax_draw2d’, ‘ax_draw3d’, ‘ax_polar’, ‘plot2d’ ### Function:
-ax_draw2d ([args])
+See also: ‘ax_draw2d’, ‘ax_draw3d’, ‘ax_polar’, ‘plot2d’
 
-Draw 2D interactive plots using Plotly.js.  Accepts Maxima draw package
-objects and Aximar-specific objects, rendering them as interactive
-charts with pan, zoom, and hover.
+
+File: ax-plots.info,  Node: Function ax_draw2d [args],  Next: Function ax_polar expr [var min max],  Prev: Function ax_plot2d y1 x1 y2 x2 ... options,  Up: 2D Plotting
+
+ -- Function: ax_draw2d ([ARGS])
+     Draw 2D interactive plots using Plotly.js.  Accepts Maxima draw
+     package objects and Aximar-specific objects, rendering them as
+     interactive charts with pan, zoom, and hover.
+
+* Menu:
+
+     * Supported Objects::
+     * Examples::
+     * Labels Arrows and Polygons::
+     * Arrowheads and Filled Areas::
+     * Decorations::
+     * Diagrams::
+     * Shapes::
+     * Raw Plotly::
+     * Data Values::
+     * Per-object Options::
+     * Lists and Groups::
+     * Style Options::
+     * Layout Options::
 
 
 File: ax-plots.info,  Node: Supported Objects,  Next: ,  Prev: Layout Options,  Up: Examples
@@ -737,17 +745,26 @@ Option                      Description
 ‘diagram’                   ‘true’: no axes, grid, legend or hover;
                             equal scales; ‘height=fit’ (see Diagrams)
 
-See also: ‘ax_plot2d’, ‘ax_draw3d’, ‘ax_polar’, ‘draw2d’ ### Function:
-ax_polar (expr, [var, min, max])
+See also: ‘ax_plot2d’, ‘ax_draw3d’, ‘ax_polar’, ‘draw2d’
 
-Plot r(θ) curves in polar coordinates as interactive Plotly.js charts.
-Standalone function (like ‘ax_plot2d’).
+
+File: ax-plots.info,  Node: Function ax_polar expr [var min max],  Prev: Function ax_draw2d [args],  Up: 2D Plotting
 
-Calling forms:
+ -- Function: ax_polar (EXPR, [VAR, MIN, MAX])
+     Plot r(θ) curves in polar coordinates as interactive Plotly.js
+     charts.  Standalone function (like ‘ax_plot2d’).
 
-   • ‘ax_polar(expr, [θ, min, max], options)’ -- single expression
-   • ‘ax_polar([expr_1, ..., expr_n], [θ, min, max], options)’ --
-     multiple expressions
+     Calling forms:
+
+        • ‘ax_polar(expr, [θ, min, max], options)’ -- single expression
+        • ‘ax_polar([expr_1, ..., expr_n], [θ, min, max], options)’ --
+          multiple expressions
+
+* Menu:
+
+     * Examples::
+     * Style Options::
+     * Layout Options::
 
 1.2.1.16 Examples
 .................
@@ -814,7 +831,7 @@ Option                      Description
 See also: ‘ax_plot2d’, ‘ax_draw2d’
 
 
-File: ax-plots.info,  Node: 3D Plotting,  Next: Statistical Charts,  Prev: 2D Plotting,  Up: Package ax-plots
+File: ax-plots.info,  Node: 3D Plotting,  Next: Animation and Interaction,  Prev: 2D Plotting,  Up: Package ax-plots
 
 1.3 3D Plotting
 ===============
@@ -854,6 +871,26 @@ Object               Syntax               Description
 ‘lines’              ‘lines([[x1,y1,z1],...])’3D line plot from data
                      or ‘lines(xs, ys,
                      zs)’
+‘parametric’         ‘parametric(x(t),    A space curve
+                     y(t), z(t), t, t0,
+                     t1)’
+‘parametric_surface’ ‘parametric_surface(x(u,v),A parametric surface
+                     y(u,v), z(u,v), u,
+                     u0, u1, v, v0,
+                     v1)’
+‘implicit’           ‘implicit(f(x,y,z)   The surface where the equation
+                     = c, x, x0, x1, y,   holds (an isosurface)
+                     y0, y1, z, z0,
+                     z1)’
+‘ax_contour3d’       ‘ax_contour3d(expr,  A surface z = f(x,y) with
+                     x, x0, x1, y, y0,    contour lines, projected onto
+                     y1)’                 the floor
+‘ax_vector_field3d’  ‘ax_vector_field3d(Fx,Cones showing a vector field
+                     Fy, Fz, x, x0, x1,   on a grid
+                     y, y0, y1, z, z0,
+                     z1)’
+‘animate’            ‘animate(object,     Any of the above over a
+                     [param, lo, hi])’    parameter (see ‘animate’)
 ‘ax_trace’           ‘ax_trace(json_string)’A raw Plotly trace, emitted
                                           verbatim
 
@@ -884,6 +921,24 @@ ax_draw3d(
   title="Saddle Surface",
   colorscale="Viridis"
 )$
+
+/* Space curve and parametric surface (a torus) */
+ax_draw3d(parametric(cos(t), sin(t), t/5, t, 0, 6*%pi))$
+ax_draw3d(parametric_surface((2 + cos(v))*cos(u), (2 + cos(v))*sin(u), sin(v),
+                             u, 0, 2*%pi, v, 0, 2*%pi))$
+
+/* Implicit surface: a sphere */
+ax_draw3d(implicit(x^2 + y^2 + z^2 = 1, x, -1.2, 1.2, y, -1.2, 1.2, z, -1.2, 1.2))$
+
+/* Contour lines on a surface, and a 3D vector field */
+ax_draw3d(ax_contour3d(sin(x)*cos(y), x, -%pi, %pi, y, -%pi, %pi))$
+ax_draw3d(ax_vector_field3d(-y, x, z/2, x, -1, 1, y, -1, 1, z, -1, 1))$
+
+Grid sizes are limited to keep the plots responsive; a value above the
+limit falls back to the default.  ‘nticks’ is at most 200 for surfaces
+(default 50) and at most 50 for ‘implicit’ (default 20); ‘ngrid’ is at
+most 15 for ‘ax_vector_field3d’ (default 8, so 512 cones).
+‘normalize=true’ draws all cones the same size.
 
 As in ‘ax_draw2d’, arguments may be lists of objects, and ‘group(obj,
 ..., opt=val, ...)’ applies options to the objects in it only.
@@ -938,17 +993,203 @@ Option                      Description
 See also: ‘ax_plot2d’, ‘ax_draw2d’, ‘ax_polar’, ‘draw3d’
 
 
-File: ax-plots.info,  Node: Statistical Charts,  Next: Field Plots,  Prev: 3D Plotting,  Up: Package ax-plots
+File: ax-plots.info,  Node: Animation and Interaction,  Next: Statistical Charts,  Prev: 3D Plotting,  Up: Package ax-plots
 
-1.4 Statistical Charts
+1.4 Animation and Interaction
+=============================
+
+* Menu:
+
+* Function animate object [param lo hi] / animate object [param lo hi n]::
+* Reactive plots::
+
+
+File: ax-plots.info,  Node: Function animate object [param lo hi] / animate object [param lo hi n],  Next: Reactive plots,  Up: Animation and Interaction
+
+ -- Function: animate (OBJECT, [PARAM, LO, HI]) / ANIMATE (OBJECT,
+          [PARAM, LO, HI, N])
+     Animates a draw object over a parameter.  Use it inside ‘ax_draw2d’
+     or ‘ax_draw3d’ in place of the object: ‘object’ is drawn at ‘n’
+     values of ‘param’, evenly spaced from ‘lo’ to ‘hi’ inclusive (60 by
+     default), and the plot gets a play button and a slider to scrub
+     through them.
+
+     ‘param’ must be a symbol that ‘object’ depends on, such as ‘k’ in
+     ‘explicit(sin(k*x), x, -%pi, %pi)’.  Every ‘animate’ in one plot
+     must use the same ‘[param, lo, hi, n]’; objects outside ‘animate’
+     stay fixed.
+
+* Menu:
+
+     * Examples::
+     * What can be animated::
+     * Playback options::
+
+1.4.1 Examples
+--------------
+
+/* A wave changing frequency */
+ax_draw2d(animate(explicit(sin(k*x), x, -%pi, %pi), [k, 0.5, 3, 40]))$
+
+/* Several animated objects share one parameter; the circle stays fixed */
+ax_draw2d(
+  parametric(cos(s), sin(s), s, 0, 2*%pi, color="gray"),
+  animate(vector([0, 0], [cos(t), sin(t)], color="red"), [t, 0, 2*%pi, 48]),
+  animate(label([t, 1.25*cos(t), 1.25*sin(t)]), [t, 0, 2*%pi, 48]),
+  aspect_ratio=true, xrange=[-1.6, 1.6], yrange=[-1.6, 1.6], slider_label="t"
+)$
+
+/* A surface in 3D */
+ax_draw3d(animate(
+  explicit(sin(k*x)*cos(y), x, -%pi, %pi, y, -%pi, %pi), [k, 0.5, 2.0]),
+  colorscale="Viridis")$
+
+* Menu:
+
+* What can be animated::
+* Playback options::
+
+
+File: ax-plots.info,  Node: What can be animated,  Next: Playback options,  Up: 
+
+1.4.1.1 What can be animated
+............................
+
+   • Curves, points, surfaces and the other trace objects, in 2D and 3D.
+     The object must produce the same number of traces at every frame.
+   • In 2D, also ‘label’, ‘vector’ and shapes (‘rectangle’, ‘ellipse’,
+     ‘hline’, ‘vline’).  They are rebuilt for each frame and jump
+     between frames rather than tweening.  A label whose text is a
+     float, such as ‘label([t, x, y])’, shows it to 3 significant
+     figures.
+   • ‘animate’ and ‘reactive’ signals can't be combined in one plot.
+
+With the ‘numerics’ package loaded, an animated 2D ‘explicit’ is sampled
+for all frames at once by ‘numerics’' ‘compile_grid’, which is several
+times faster for long animations.  This needs a ‘numerics’ with
+‘compile_grid’ (published to the mxpm index on 2026-10-19).
+
+
+File: ax-plots.info,  Node: Playback options,  Prev: What can be animated,  Up: 
+
+1.4.1.2 Playback options
+........................
+
+These are plot options, given alongside ‘title’ or ‘xrange’:
+
+Option              Default                Description
+---------------------------------------------------------------------------
+‘fps’               12                     Frames per second when
+                                           playing
+‘transition_duration’1000 / ‘fps’ ms       Tween between frames; ‘0’
+                                           steps without tweening
+‘slider_label’      the parameter's name   Text before the value on the
+                                           slider
+
+An animation plays once per press of the play button.  ‘loop’ is not
+implemented, and giving it is an error.
+
+Playing an animation needs a host that registers Plotly frames.  Aximar
+does from its June 2026 ‘master’ onwards; release v0.14.0 shows the
+controls but they do nothing.
+
+See also: ‘ax_draw2d’, ‘ax_draw3d’
+
+
+File: ax-plots.info,  Node: Reactive plots,  Prev: ,  Up: Animation and Interaction
+
+1.4.2 Reactive plots
+--------------------
+
+With the reactive (https://github.com/cmsd2/maxima-reactive) package
+(‘mxpm install reactive’), a plot can depend on named parameters, called
+_signals_, that the reader changes with a slider or other control.  The
+host shows a control for every signal in the plot and redraws the plot
+when one changes.
+
+A signal is created by a widget function and stays symbolic, so it can
+be used anywhere in an expression, including inside ‘diff’ or
+‘integrate’:
+
+Function                    Control                   Value
+--------------------------------------------------------------------------
+‘widget_slider(name, lo,    slider                    a number in ‘[lo,
+hi)’                                                  hi]’, initially
+                                                      ‘lo’
+‘widget_number(name, lo,    number box                a number in ‘[lo,
+hi, initial)’                                         hi]’
+‘widget_checkbox(name,      checkbox                  ‘0.0’ or ‘1.0’
+initial)’
+‘widget_dropdown(name,      drop-down list            one of the
+[c1, c2, ...])’                                       choices
+
+‘signal(name)’ refers to an existing signal by name, and
+‘reactive_reset()’ clears them all.  See the ‘reactive’ documentation
+for the rest of its API.
+
+* Menu:
+
+* Examples::
+* How it works::
+
+1.4.2.1 Examples
+................
+
+load("ax-plots")$
+load("reactive")$
+
+/* One slider */
+ax_draw2d(explicit(sin(widget_slider("freq", 0.1, 5) * x), x, -%pi, %pi),
+          yrange=[-1.2, 1.2])$
+
+/* A signal bound to a variable can be used more than once */
+d : widget_slider("damping", 0.05, 1.5)$
+ax_draw2d(explicit(exp(-d*x) * cos(6*x), x, 0, 6),
+          explicit(exp(-d*x), x, 0, 6, dash="dot"))$
+
+/* 3D works the same way */
+ax_draw3d(explicit(sin(widget_slider("kx", 0.2, 3) * x) * cos(y),
+                   x, -%pi, %pi, y, -%pi, %pi))$
+
+The ‘examples/reactive-sliders.macnb’ notebook has more.
+
+
+File: ax-plots.info,  Node: How it works,  Prev: ,  Up: Reactive plots
+
+1.4.2.2 How it works
+....................
+
+A plot whose objects contain signals carries a ‘_reactive’ block listing
+them (name, kind, range, current value), and is registered under a view
+id.  When a control changes, the host sets the signal and asks ax-plots
+to draw the view again with the new value.  Plots without signals are
+unaffected, and nothing changes when ‘reactive’ isn't loaded.
+
+This needs ax-plots 0.2.0 or later with ‘reactive’ at commit ‘897a88b’
+or later, and a host that renders the controls: Aximar built from its
+June 2026 ‘master’ onwards.  ‘animate’ and signals can't be combined in
+one plot.
+
+See also: ‘ax_draw2d’, ‘ax_draw3d’, ‘animate’
+
+
+File: ax-plots.info,  Node: Statistical Charts,  Next: Field Plots,  Prev: Animation and Interaction,  Up: Package ax-plots
+
+1.5 Statistical Charts
 ======================
 
 * Menu:
 
 * Function ax_bar categories values::
+* Function ax_histogram data::
+* Function ax_heatmap z_matrix::
+* Function ax_box data / ax_box data category::
+* Function ax_violin data / ax_violin data category::
+* Function ax_pie values / ax_pie values labels::
+* Function ax_error_bar xs ys y_errors / ax_error_bar xs ys y_errors x_errors::
 
 
-File: ax-plots.info,  Node: Function ax_bar categories values,  Up: Statistical Charts
+File: ax-plots.info,  Node: Function ax_bar categories values,  Next: Function ax_histogram data,  Up: Statistical Charts
 
  -- Function: ax_bar (CATEGORIES, VALUES)
      Bar chart for labeled or numeric data.  Use inside ‘ax_draw2d’.
@@ -967,13 +1208,8 @@ File: ax-plots.info,  Node: Function ax_bar categories values,  Up: Statistical 
      * Examples::
      * Relevant Options::
      * Layout Options::
-     * Examples::
-     * Relevant Options::
-     * Layout Options::
-     * Examples::
-     * Relevant Options::
 
-1.4.1 Examples
+1.5.1 Examples
 --------------
 
 /* Basic bar chart */
@@ -1009,7 +1245,7 @@ ax_draw2d(
 
 File: ax-plots.info,  Node: Relevant Options,  Next: ,  Up: 
 
-1.4.1.1 Relevant Options
+1.5.1.1 Relevant Options
 ........................
 
 Option        Default   Description
@@ -1019,7 +1255,7 @@ Option        Default   Description
 ‘name’        auto      Legend entry / series name
 ‘opacity’     1.0       Bar opacity
 
-1.4.1.2 Layout Options
+1.5.1.2 Layout Options
 ......................
 
 Option               Values               Description
@@ -1028,12 +1264,22 @@ Option               Values               Description
                      ‘"stack"’,           arranged
                      ‘"overlay"’
 
-See also: ‘ax_draw2d’, ‘ax_histogram’ ### Function: ax_histogram (data)
+See also: ‘ax_draw2d’, ‘ax_histogram’
 
-Histogram of numeric data.  Use inside ‘ax_draw2d’.  Takes a flat list
-of numbers; Plotly handles binning automatically.
+
+File: ax-plots.info,  Node: Function ax_histogram data,  Next: Function ax_heatmap z_matrix,  Prev: Function ax_bar categories values,  Up: Statistical Charts
 
-1.4.1.3 Examples
+ -- Function: ax_histogram (DATA)
+     Histogram of numeric data.  Use inside ‘ax_draw2d’.  Takes a flat
+     list of numbers; Plotly handles binning automatically.
+
+* Menu:
+
+     * Examples::
+     * Relevant Options::
+     * Layout Options::
+
+1.5.1.3 Examples
 ................
 
 /* Basic histogram */
@@ -1052,7 +1298,7 @@ ax_draw2d(
   bar_mode="overlay", title="Comparing Distributions"
 )$
 
-1.4.1.4 Relevant Options
+1.5.1.4 Relevant Options
 ........................
 
 Option      Default   Description
@@ -1062,7 +1308,7 @@ Option      Default   Description
 ‘name’      auto      Legend entry
 ‘opacity’   1.0       Bar opacity
 
-1.4.1.5 Layout Options
+1.5.1.5 Layout Options
 ......................
 
 Option               Values               Description
@@ -1071,19 +1317,28 @@ Option               Values               Description
                      ‘"stack"’,           displayed
                      ‘"overlay"’
 
-See also: ‘ax_draw2d’, ‘ax_bar’ ### Function: ax_heatmap (z_matrix)
+See also: ‘ax_draw2d’, ‘ax_bar’
 
-Heatmap visualization.  Use inside ‘ax_draw2d’.
+
+File: ax-plots.info,  Node: Function ax_heatmap z_matrix,  Next: Function ax_box data / ax_box data category,  Prev: Function ax_histogram data,  Up: Statistical Charts
 
-Calling forms:
+ -- Function: ax_heatmap (Z_MATRIX)
+     Heatmap visualization.  Use inside ‘ax_draw2d’.
 
-   • ‘ax_heatmap(z_matrix)’ -- pass a Maxima ‘matrix(...)’ directly
-   • ‘ax_heatmap(z_matrix, x_labels, y_labels)’ -- matrix with string
-     lists for axis labels
-   • ‘ax_heatmap(expr, xvar, xlo, xhi, yvar, ylo, yhi)’ -- symbolic
-     expression sampled on a grid
+     Calling forms:
 
-1.4.1.6 Examples
+        • ‘ax_heatmap(z_matrix)’ -- pass a Maxima ‘matrix(...)’ directly
+        • ‘ax_heatmap(z_matrix, x_labels, y_labels)’ -- matrix with
+          string lists for axis labels
+        • ‘ax_heatmap(expr, xvar, xlo, xhi, yvar, ylo, yhi)’ -- symbolic
+          expression sampled on a grid
+
+* Menu:
+
+     * Examples::
+     * Relevant Options::
+
+1.5.1.6 Examples
 ................
 
 /* From a matrix */
@@ -1102,7 +1357,7 @@ ax_draw2d(
   colorscale="Hot"
 )$
 
-1.4.1.7 Relevant Options
+1.5.1.7 Relevant Options
 ........................
 
 Option              Default                Description
@@ -1118,17 +1373,171 @@ Option              Default                Description
 See also: ‘ax_draw2d’, ‘ax_contour’
 
 
+File: ax-plots.info,  Node: Function ax_box data / ax_box data category,  Next: Function ax_violin data / ax_violin data category,  Prev: Function ax_heatmap z_matrix,  Up: Statistical Charts
+
+ -- Function: ax_box (DATA) / AX_BOX (DATA, CATEGORY)
+     Box plot of a list of numbers (or an ndarray).  Use inside
+     ‘ax_draw2d’.  With a ‘category’ string, the box is placed at that
+     position on the x-axis, so several ‘ax_box’ objects with different
+     categories sit side by side.
+
+* Menu:
+
+     * Examples::
+     * Relevant Options::
+
+1.5.1.8 Examples
+................
+
+ax_draw2d(ax_box([2.1, 2.5, 2.8, 3.0, 3.2, 3.9, 5.6]))$
+
+/* Two groups, with every point shown and the mean marked */
+ax_draw2d(
+  ax_box([5, 7, 8, 9, 12, 15], "control"),
+  ax_box([8, 10, 11, 13, 14, 21], "treated"),
+  boxpoints=all, boxmean=true, showlegend=false
+)$
+
+1.5.1.9 Relevant Options
+........................
+
+Option              Default                Description
+---------------------------------------------------------------------------
+‘color’             auto                   Box colour
+‘boxpoints’         outliers               Points drawn beside the box:
+                                           ‘all’, ‘outliers’ (or a
+                                           Plotly value as a string)
+‘boxmean’           false                  ‘true’ marks the mean; ‘sd’
+                                           also shows the standard
+                                           deviation
+‘name’              ‘"box"’                Legend entry
+
+See also: ‘ax_violin’, ‘ax_histogram’, ‘ax_draw2d’
+
+
+File: ax-plots.info,  Node: Function ax_violin data / ax_violin data category,  Next: Function ax_pie values / ax_pie values labels,  Prev: Function ax_box data / ax_box data category,  Up: Statistical Charts
+
+ -- Function: ax_violin (DATA) / AX_VIOLIN (DATA, CATEGORY)
+     Violin plot of a list of numbers (or an ndarray): the
+     distribution's density, with a box plot and the mean drawn inside.
+     Use inside ‘ax_draw2d’.  With a ‘category’ string, the violin is
+     placed at that position on the x-axis.
+
+* Menu:
+
+     * Examples::
+     * Relevant Options::
+
+1.5.1.10 Examples
+.................
+
+ax_draw2d(ax_violin([2.1, 2.5, 2.8, 3.0, 3.2, 3.9, 5.6]))$
+
+ax_draw2d(
+  ax_violin([5, 7, 8, 9, 12, 15], "control"),
+  ax_violin([8, 10, 11, 13, 14, 21], "treated"),
+  boxpoints=all, showlegend=false
+)$
+
+1.5.1.11 Relevant Options
+.........................
+
+Option              Default                Description
+---------------------------------------------------------------------------
+‘color’             auto                   Violin colour
+‘boxpoints’         Plotly's default       Points drawn beside the
+                                           violin: ‘all’, ‘outliers’ (or
+                                           a Plotly value as a string)
+‘name’              ‘"violin"’             Legend entry
+
+See also: ‘ax_box’, ‘ax_histogram’, ‘ax_draw2d’
+
+
+File: ax-plots.info,  Node: Function ax_pie values / ax_pie values labels,  Next: Function ax_error_bar xs ys y_errors / ax_error_bar xs ys y_errors x_errors,  Prev: Function ax_violin data / ax_violin data category,  Up: Statistical Charts
+
+ -- Function: ax_pie (VALUES) / AX_PIE (VALUES, LABELS)
+     Pie chart of a list of non-negative numbers, with an optional list
+     of label strings.  Use inside ‘ax_draw2d’.  ‘hole’ turns it into a
+     donut chart.
+
+* Menu:
+
+     * Examples::
+     * Relevant Options::
+
+1.5.1.12 Examples
+.................
+
+ax_draw2d(ax_pie([45, 30, 25], ["Maxima", "Lisp", "Other"]))$
+
+/* Donut */
+ax_draw2d(ax_pie([45, 30, 25], ["Maxima", "Lisp", "Other"], hole=0.4))$
+
+1.5.1.13 Relevant Options
+.........................
+
+Option              Default                Description
+---------------------------------------------------------------------------
+‘hole’              0                      Size of the hole in the
+                                           middle, as a fraction of the
+                                           radius (0-1)
+‘name’              ‘"pie"’                Name shown on hover
+
+See also: ‘ax_bar’, ‘ax_draw2d’
+
+
+File: ax-plots.info,  Node: Function ax_error_bar xs ys y_errors / ax_error_bar xs ys y_errors x_errors,  Prev: Function ax_pie values / ax_pie values labels,  Up: Statistical Charts
+
+ -- Function: ax_error_bar (XS, YS, Y_ERRORS) / AX_ERROR_BAR (XS, YS,
+          Y_ERRORS, X_ERRORS)
+     Points with error bars.  ‘y_errors’ (and optionally ‘x_errors’)
+     give the half-length of each point's bar, in data units.  Use
+     inside ‘ax_draw2d’; all arguments are lists of numbers (or
+     ndarrays) of the same length.
+
+* Menu:
+
+     * Examples::
+     * Relevant Options::
+
+1.5.1.14 Examples
+.................
+
+ax_draw2d(
+  ax_error_bar([1, 2, 3, 4], [2.0, 3.1, 3.9, 5.2], [0.2, 0.3, 0.25, 0.4]),
+  explicit(x + 1, x, 0.5, 4.5, dash="dot"),
+  showlegend=false
+)$
+
+/* Error bars in both directions */
+ax_draw2d(ax_error_bar([1, 2, 3], [1, 4, 9], [0.5, 1, 1.5], [0.1, 0.1, 0.2]))$
+
+1.5.1.15 Relevant Options
+.........................
+
+Option            Default          Description
+---------------------------------------------------
+‘color’           auto             Marker colour
+‘marker_size’     6                Marker size
+‘marker_symbol’   ‘"circle"’       Marker shape
+‘name’            ‘"error bars"’   Legend entry
+
+See also: ‘points’, ‘ax_draw2d’
+
+
 File: ax-plots.info,  Node: Field Plots,  Prev: Statistical Charts,  Up: Package ax-plots
 
-1.5 Field Plots
+1.6 Field Plots
 ===============
 
 * Menu:
 
 * Function ax_contour expr xvar xlo xhi yvar ylo yhi::
+* Function ax_vector_field Fx Fy xvar xlo xhi yvar ylo yhi::
+* Function ax_streamline Fx Fy xvar xlo xhi yvar ylo yhi::
 
 
-File: ax-plots.info,  Node: Function ax_contour expr xvar xlo xhi yvar ylo yhi,  Up: Field Plots
+File: ax-plots.info,  Node: Function ax_contour expr xvar xlo xhi yvar ylo yhi,  Next: Function ax_vector_field Fx Fy xvar xlo xhi yvar ylo yhi,  Up: Field Plots
 
  -- Function: ax_contour (EXPR, XVAR, XLO, XHI, YVAR, YLO, YHI)
      Filled contour plot of a 2D expression.  Use inside ‘ax_draw2d’.
@@ -1142,12 +1551,8 @@ File: ax-plots.info,  Node: Function ax_contour expr xvar xlo xhi yvar ylo yhi, 
 
      * Examples::
      * Relevant Options::
-     * Examples::
-     * Relevant Options::
-     * Examples::
-     * Relevant Options::
 
-1.5.1 Examples
+1.6.1 Examples
 --------------
 
 /* Basic contour plot */
@@ -1168,7 +1573,7 @@ ax_draw2d(
 
 * Menu:
 
-1.5.1.1 Relevant Options
+1.6.1.1 Relevant Options
 ........................
 
 Option              Default                Description
@@ -1181,14 +1586,22 @@ Option              Default                Description
 ‘name’              auto                   Legend entry
 ‘opacity’           1.0                    Trace opacity
 
-See also: ‘ax_draw2d’, ‘ax_heatmap’, ‘implicit’ ### Function:
-ax_vector_field (Fx, Fy, xvar, xlo, xhi, yvar, ylo, yhi)
+See also: ‘ax_draw2d’, ‘ax_heatmap’, ‘implicit’
 
-2D vector field (quiver) plot.  Use inside ‘ax_draw2d’.  Given a vector
-field F = (Fx(x,y), Fy(x,y)), samples on a grid and renders arrows
-showing the field direction and magnitude.
+
+File: ax-plots.info,  Node: Function ax_vector_field Fx Fy xvar xlo xhi yvar ylo yhi,  Next: Function ax_streamline Fx Fy xvar xlo xhi yvar ylo yhi,  Prev: Function ax_contour expr xvar xlo xhi yvar ylo yhi,  Up: Field Plots
 
-1.5.1.2 Examples
+ -- Function: ax_vector_field (FX, FY, XVAR, XLO, XHI, YVAR, YLO, YHI)
+     2D vector field (quiver) plot.  Use inside ‘ax_draw2d’.  Given a
+     vector field F = (Fx(x,y), Fy(x,y)), samples on a grid and renders
+     arrows showing the field direction and magnitude.
+
+* Menu:
+
+     * Examples::
+     * Relevant Options::
+
+1.6.1.2 Examples
 ................
 
 /* Rotation field */
@@ -1213,7 +1626,7 @@ ax_draw2d(
   aspect_ratio=true, title="Phase Portrait"
 )$
 
-1.5.1.3 Relevant Options
+1.6.1.3 Relevant Options
 ........................
 
 Option          Default   Description
@@ -1225,22 +1638,30 @@ Option          Default   Description
 ‘name’          auto      Legend entry
 ‘opacity’       1.0       Trace opacity
 
-See also: ‘ax_draw2d’, ‘ax_streamline’ ### Function: ax_streamline (Fx,
-Fy, xvar, xlo, xhi, yvar, ylo, yhi)
+See also: ‘ax_draw2d’, ‘ax_streamline’
 
-Streamline / phase portrait curves for a 2D ODE system dx/dt = Fx(x,y),
-dy/dt = Fy(x,y).  Use inside ‘ax_draw2d’.  Integrates trajectories from
-initial points using RK4.
+
+File: ax-plots.info,  Node: Function ax_streamline Fx Fy xvar xlo xhi yvar ylo yhi,  Prev: Function ax_vector_field Fx Fy xvar xlo xhi yvar ylo yhi,  Up: Field Plots
 
-Combine with ‘ax_vector_field’ for a full phase portrait:
+ -- Function: ax_streamline (FX, FY, XVAR, XLO, XHI, YVAR, YLO, YHI)
+     Streamline / phase portrait curves for a 2D ODE system dx/dt =
+     Fx(x,y), dy/dt = Fy(x,y).  Use inside ‘ax_draw2d’.  Integrates
+     trajectories from initial points using RK4.
 
-ax_draw2d(
-  color="#cccccc", ax_vector_field(-y, x, x, -3, 3, y, -3, 3),
-  color="red", ax_streamline(-y, x, x, -3, 3, y, -3, 3),
-  aspect_ratio=true, title="Phase Portrait"
-)$
+     Combine with ‘ax_vector_field’ for a full phase portrait:
 
-1.5.1.4 Examples
+     ax_draw2d(
+       color="#cccccc", ax_vector_field(-y, x, x, -3, 3, y, -3, 3),
+       color="red", ax_streamline(-y, x, x, -3, 3, y, -3, 3),
+       aspect_ratio=true, title="Phase Portrait"
+     )$
+
+* Menu:
+
+     * Examples::
+     * Relevant Options::
+
+1.6.1.4 Examples
 ................
 
 /* Auto initial points */
@@ -1254,7 +1675,7 @@ ax_draw2d(
   title="Lotka-Volterra"
 )$
 
-1.5.1.5 Relevant Options
+1.6.1.5 Relevant Options
 ........................
 
 Option             Default   Description
@@ -1278,13 +1699,35 @@ Appendix A Function and variable index
  [index ]
 * Menu:
 
+* animate:                               Function animate object [param lo hi] / animate object [param lo hi n].
+                                                                (line 3)
 * ax_bar:                                Function ax_bar categories values.
+                                                                (line 3)
+* ax_box:                                Function ax_box data / ax_box data category.
                                                                 (line 3)
 * ax_contour:                            Function ax_contour expr xvar xlo xhi yvar ylo yhi.
                                                                 (line 3)
+* ax_draw2d:                             Function ax_draw2d [args].
+                                                                (line 3)
 * ax_draw3d:                             Function ax_draw3d [args].
                                                                 (line 3)
+* ax_error_bar:                          Function ax_error_bar xs ys y_errors / ax_error_bar xs ys y_errors x_errors.
+                                                                (line 3)
+* ax_heatmap:                            Function ax_heatmap z_matrix.
+                                                                (line 3)
+* ax_histogram:                          Function ax_histogram data.
+                                                                (line 3)
+* ax_pie:                                Function ax_pie values / ax_pie values labels.
+                                                                (line 3)
 * ax_plot2d:                             Function ax_plot2d y1 x1 y2 x2 ... options.
+                                                                (line 3)
+* ax_polar:                              Function ax_polar expr [var min max].
+                                                                (line 3)
+* ax_streamline:                         Function ax_streamline Fx Fy xvar xlo xhi yvar ylo yhi.
+                                                                (line 3)
+* ax_vector_field:                       Function ax_vector_field Fx Fy xvar xlo xhi yvar ylo yhi.
+                                                                (line 3)
+* ax_violin:                             Function ax_violin data / ax_violin data category.
                                                                 (line 3)
 
 
@@ -1293,77 +1736,119 @@ Tag Table:
 Node: Top77
 Node: Package ax-plots189
 Ref: #package-ax-plots334
-Node: Introduction to ax-plots444
-Ref: #introduction-to-ax-plots602
-Node: 2D Plotting1053
-Ref: #d-plotting1205
-Node: Function ax_plot2d y1 x1 y2 x2 ... options1262
-Ref: #function-ax_plot2d-y1-x1-y2-x2-options1409
-Node: Examples2789
-Ref: #examples2878
-Node: Style Options3873
-Ref: #style-options4001
-Node: Layout Options4811
-Ref: #layout-options4967
-Node: Supported Objects6038
-Ref: #supported-objects6187
-Ref: #examples-19078
-Node: Labels Arrows and Polygons10427
-Ref: #labels-arrows-and-polygons10618
-Node: Arrowheads and Filled Areas12858
-Ref: #arrowheads-and-filled-areas13060
-Node: Decorations14028
-Ref: #decorations14180
-Node: Diagrams16427
-Ref: #diagrams16552
-Node: Shapes17876
-Ref: #shapes17996
-Node: Raw Plotly18788
-Ref: #raw-plotly18921
-Node: Data Values19370
-Ref: #data-values19517
-Node: Per-object Options19997
-Ref: #per-object-options20164
-Node: Lists and Groups20640
-Ref: #lists-and-groups20792
-Ref: #style-options-121619
-Ref: #layout-options-128008
-Ref: #examples-232187
-Ref: #style-options-232556
-Ref: #layout-options-233258
-Node: 3D Plotting34740
-Ref: #d-plotting-134886
-Node: Function ax_draw3d [args]34926
-Ref: #function-ax_draw3d-args35034
-Node: Supported Draw Objects35256
-Ref: #supported-draw-objects35387
-Ref: #examples-336117
-Ref: #style-options-336903
-Ref: #layout-options-337496
-Node: Statistical Charts39210
-Ref: #statistical-charts39370
-Node: Function ax_bar categories values39418
-Ref: #function-ax_bar-categories-values39550
-Ref: #examples-440143
-Node: Relevant Options40783
-Ref: #relevant-options40898
-Ref: #layout-options-441227
-Ref: #examples-541770
-Ref: #relevant-options-142334
-Ref: #layout-options-542615
-Ref: #examples-643391
-Ref: #relevant-options-243808
-Node: Field Plots44459
-Ref: #field-plots44585
-Node: Function ax_contour expr xvar xlo xhi yvar ylo yhi44650
-Ref: #function-ax_contour-expr-xvar-xlo-xhi-yvar-ylo-yhi44814
-Ref: #examples-745255
-Ref: #relevant-options-345661
-Ref: #examples-846636
-Ref: #relevant-options-447216
-Ref: #examples-948215
-Ref: #relevant-options-548551
-Node: Function and variable index49070
+Node: Introduction to ax-plots474
+Ref: #introduction-to-ax-plots632
+Node: 2D Plotting1258
+Ref: #d-plotting1410
+Node: Function ax_plot2d y1 x1 y2 x2 ... options1538
+Ref: #function-ax_plot2d-y1-x1-y2-x2-options1719
+Node: Examples2719
+Ref: #examples2829
+Node: Style Options3824
+Ref: #style-options3952
+Node: Layout Options4762
+Ref: #layout-options4918
+Node: Function ax_draw2d [args]5782
+Ref: #function-ax_draw2d-args5986
+Node: Supported Objects6500
+Ref: #supported-objects6649
+Ref: #examples-19540
+Node: Labels Arrows and Polygons10889
+Ref: #labels-arrows-and-polygons11080
+Node: Arrowheads and Filled Areas13320
+Ref: #arrowheads-and-filled-areas13522
+Node: Decorations14490
+Ref: #decorations14642
+Node: Diagrams16889
+Ref: #diagrams17014
+Node: Shapes18338
+Ref: #shapes18458
+Node: Raw Plotly19250
+Ref: #raw-plotly19383
+Node: Data Values19832
+Ref: #data-values19979
+Node: Per-object Options20459
+Ref: #per-object-options20626
+Node: Lists and Groups21102
+Ref: #lists-and-groups21254
+Ref: #style-options-122081
+Ref: #layout-options-128470
+Node: Function ax_polar expr [var min max]32258
+Ref: #function-ax_polar-expr-var-min-max32425
+Ref: #examples-232875
+Ref: #style-options-233244
+Ref: #layout-options-233946
+Node: 3D Plotting35428
+Ref: #d-plotting-135581
+Node: Function ax_draw3d [args]35621
+Ref: #function-ax_draw3d-args35729
+Node: Supported Draw Objects35951
+Ref: #supported-draw-objects36082
+Ref: #examples-337871
+Ref: #style-options-339558
+Ref: #layout-options-340151
+Node: Animation and Interaction41865
+Ref: #animation-and-interaction42053
+Node: Function animate object [param lo hi] / animate object [param lo hi n]42157
+Ref: #function-animate-object-param-lo-hi-animate-object-param-lo-hi-n42411
+Ref: #examples-443116
+Node: What can be animated43786
+Ref: #what-can-be-animated43929
+Node: Playback options44762
+Ref: #playback-options44897
+Node: Reactive plots45826
+Ref: #reactive-plots45956
+Ref: #examples-547369
+Node: How it works47943
+Ref: #how-it-works48060
+Node: Statistical Charts48717
+Ref: #statistical-charts48891
+Node: Function ax_bar categories values49235
+Ref: #function-ax_bar-categories-values49402
+Ref: #examples-649883
+Node: Relevant Options50523
+Ref: #relevant-options50638
+Ref: #layout-options-450967
+Node: Function ax_histogram data51315
+Ref: #function-ax_histogram-data51511
+Ref: #examples-751760
+Ref: #relevant-options-152324
+Ref: #layout-options-552605
+Node: Function ax_heatmap z_matrix52951
+Ref: #function-ax_heatmap-z_matrix53159
+Ref: #examples-853642
+Ref: #relevant-options-254059
+Node: Function ax_box data / ax_box data category54710
+Ref: #function-ax_box-data-ax_box-data-category54959
+Ref: #examples-955302
+Ref: #relevant-options-355623
+Node: Function ax_violin data / ax_violin data category56364
+Ref: #function-ax_violin-data-ax_violin-data-category56636
+Ref: #examples-1056981
+Ref: #relevant-options-457238
+Node: Function ax_pie values / ax_pie values labels57779
+Ref: #function-ax_pie-values-ax_pie-values-labels58079
+Ref: #examples-1158341
+Ref: #relevant-options-558542
+Node: Function ax_error_bar xs ys y_errors / ax_error_bar xs ys y_errors x_errors58985
+Ref: #function-ax_error_bar-xs-ys-y_errors-ax_error_bar-xs-ys-y_errors-x_errors59271
+Ref: #examples-1259610
+Ref: #relevant-options-659932
+Node: Field Plots60289
+Ref: #field-plots60415
+Node: Function ax_contour expr xvar xlo xhi yvar ylo yhi60600
+Ref: #function-ax_contour-expr-xvar-xlo-xhi-yvar-ylo-yhi60829
+Ref: #examples-1361182
+Ref: #relevant-options-761588
+Node: Function ax_vector_field Fx Fy xvar xlo xhi yvar ylo yhi62270
+Ref: #function-ax_vector_field-fx-fy-xvar-xlo-xhi-yvar-ylo-yhi62569
+Ref: #examples-1462860
+Ref: #relevant-options-863440
+Node: Function ax_streamline Fx Fy xvar xlo xhi yvar ylo yhi63918
+Ref: #function-ax_streamline-fx-fy-xvar-xlo-xhi-yvar-ylo-yhi64156
+Ref: #examples-1564707
+Ref: #relevant-options-965043
+Node: Function and variable index65562
 
 End Tag Table
 
