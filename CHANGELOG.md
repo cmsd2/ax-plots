@@ -7,6 +7,14 @@ compatibility).
 
 ## [Unreleased]
 
+### Fixed
+
+- **Transposed 2D grids**: `implicit` (2D), `explicit` (3D surfaces),
+  `ax_contour`, `ax_contour3d` and the expression form of `ax_heatmap`
+  sampled z with x on the outer index, so Plotly drew f(y, x) instead of
+  f(x, y), mapped through the two axis ranges.  Curves and surfaces of
+  functions that are not symmetric in x and y came out wrong.
+
 ## [0.2.0] - 2026-10-19
 
 ### Added

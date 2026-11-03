@@ -308,6 +308,24 @@ block([j: ax__build_layout_2d([xrange = [0, 1], xreversed = true])],
   [numberp(ssearch("\"range\":[1.0,0.0]", j)), ssearch("autorange", j)]);
 [true, false];
 
+/* --- 2D grid orientation ------------------------------------------------ */
+
+/* z rows run over y and columns over x, as Plotly expects */
+ax__sample_2d(x + 10*y, x, 0, 1, y, 0, 2, 2, 3);
+[[0.0, 1.0], [0.0, 1.0, 2.0], [[0.0, 1.0], [10.0, 11.0], [20.0, 21.0]]];
+
+/* the curve x = 1 changes sign along each row of z */
+numberp(ssearch("\"z\":[[-1.0,0.0,1.0],[-1.0,0.0,1.0],[-1.0,0.0,1.0]]",
+  ax__build_trace_2d(implicit(x = 1, x, 0, 2, y, 0, 5),
+                     ax__apply_option(ax__default_style(), nticks = 3))));
+true;
+
+/* a sampled heatmap has the same orientation as one given as a matrix */
+numberp(ssearch("\"z\":[[0.0,1.0],[10.0,11.0]]",
+  ax__build_trace_2d(ax_heatmap(x + 10*y, x, 0, 1, y, 0, 1),
+                     ax__apply_option(ax__default_style(), nticks = 2))));
+true;
+
 /* --- arrowheads on curves ---------------------------------------------- */
 
 /* no heads: plain lines, no marker */
