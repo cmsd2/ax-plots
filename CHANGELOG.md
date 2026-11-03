@@ -7,6 +7,8 @@ compatibility).
 
 ## [Unreleased]
 
+## [0.2.1] - 2026-11-03
+
 ### Fixed
 
 - **Transposed 2D grids**: `implicit` (2D), `explicit` (3D surfaces),
@@ -94,6 +96,7 @@ The first version, unchanged in number while these were added:
 - Reactive views: plots containing `reactive` signals carry `_reactive`
   metadata, so a host can show widgets and redraw the plot.
 
-[Unreleased]: https://github.com/cmsd2/ax-plots/compare/v0.2.0...HEAD
+[Unreleased]: https://github.com/cmsd2/ax-plots/compare/v0.2.1...HEAD
+[0.2.1]: https://github.com/cmsd2/ax-plots/compare/v0.2.0...v0.2.1
 [0.2.0]: https://github.com/cmsd2/ax-plots/compare/a721119...v0.2.0
 [0.1.0]: https://github.com/cmsd2/ax-plots/commits/a721119
