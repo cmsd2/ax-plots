@@ -197,6 +197,14 @@ Replace the per-object trace build with a two-pass walk:
    - `frames`: array of `{name: "i", data: [traceᵢ_animated_1, traceᵢ_animated_2, …]}`.
      Plotly applies frame data in order to the matching base-trace indices, so
      only the animated traces need to be in each frame.
+   - An animated trace keeps one `name` in every frame: its expression with the
+     parameter as a symbol (`sin(k*x)`, from `ax__animate_name`).  A name that
+     changed per frame changed the legend's width, and Plotly resizes the plot
+     area around the legend, so the figure jumped sideways.
+   - An animated line has `line.simplify: false`.  Plotly otherwise drops
+     nearly collinear points, so frames of `sin(k*x)` had between 38 and 136
+     points, and the tween between frames paired them wrongly: the line tore
+     towards its end.
    - `layout.sliders`, `layout.updatemenus`: see below.
 
 ### 3. Layout: slider + play/pause
@@ -209,7 +217,7 @@ Replace the per-object trace build with a two-pass walk:
     "steps": [
       {"label": "0.10", "method": "animate",
        "args": [["0"], {"mode": "immediate",
-                        "frame": {"duration": 0, "redraw": true},
+                        "frame": {"duration": 0, "redraw": false},
                         "transition": {"duration": 0}}]},
       ...
     ]
@@ -219,7 +227,7 @@ Replace the per-object trace build with a two-pass walk:
     "showactive": false,
     "buttons": [
       {"label": "▶", "method": "animate",
-       "args": [null, {"frame": {"duration": 83, "redraw": true},
+       "args": [null, {"frame": {"duration": 83, "redraw": false},
                        "fromcurrent": true,
                        "transition": {"duration": 83, "easing": "linear"}}]},
       {"label": "❚❚", "method": "animate",
@@ -230,6 +238,12 @@ Replace the per-object trace build with a two-pass walk:
   }]
 }
 ```
+
+`redraw` is `false` when every animated object is a 2D curve or set of points
+(`explicit`, `parametric`, `points`, `lines`, from
+`ax__animate_scatter_only_p`): Plotly tweens those traces in place, and
+redrawing every frame as well made the tween tear.  3D animations, other trace
+types and animated layout objects use `redraw: true`.
 
 Slider step labels show the parameter value formatted to a sensible precision
 (e.g. 2–3 significant figures, matching axis tick formatting).

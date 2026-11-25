@@ -7,6 +7,17 @@ compatibility).
 
 ## [Unreleased]
 
+### Fixed
+
+- **Animations play smoothly**: an animated object's legend name changed at
+  every frame (`sin(0.5*x)`, `sin(0.6*x)`, ...), so the legend changed width
+  and the plot jumped sideways; it's now the expression with the parameter
+  (`sin(k*x)`) unless `name` is given.  Animated lines tore between frames,
+  because Plotly dropped a different set of points from each frame's line and
+  the tween paired them wrongly; animated lines now keep every point.  2D
+  animations of curves and points play without redrawing the plot at each
+  frame.
+
 ## [0.2.1] - 2026-11-03
 
 ### Fixed

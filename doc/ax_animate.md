@@ -39,6 +39,14 @@ ax_draw3d(animate(
   shows it to 3 significant figures.
 - `animate` and `reactive` signals can't be combined in one plot.
 
+An animated object's legend entry shows its expression with the parameter,
+such as `sin(k*x)`, in every frame, unless you give it a `name`.  The slider
+shows the parameter's value.
+
+2D animations of curves and points (`explicit`, `parametric`, `points`,
+`lines`) tween in place.  Other animations, and animated labels and shapes,
+redraw the plot at each frame.
+
 With the `numerics` package loaded, an animated 2D `explicit` is sampled
 for all frames at once by `numerics`' `compile_grid`, which is several times
 faster for long animations.  This needs a `numerics` with `compile_grid`
@@ -59,6 +67,7 @@ implemented, and giving it is an error.
 
 Playing an animation needs a host that registers Plotly frames.  Aximar
 does from its June 2026 `master` onwards; release v0.14.0 shows the controls
-but they do nothing.
+but they do nothing.  The VS Code extension (`maxima-notebook`) does from
+v0.5.0.
 
 See also: `ax_draw2d`, `ax_draw3d`

@@ -673,6 +673,51 @@ ax_draw3d(animate(explicit(sin(k*x)*cos(y), x, -%pi, %pi, y, -%pi, %pi),
                   [k, 0.5, 1.5, 3]));
 done;
 
+/* an animated object keeps one legend name, with the parameter as a
+   symbol, so the legend's width doesn't change between frames */
+[ax__animate_name(explicit(sin(k*x), x, -1, 1)),
+ ax__animate_name(parametric(cos(k*t), sin(t), t, 0, 1)),
+ ax__animate_name(points([[1, 2]]))];
+["sin(k*x)", "(cos(k*t), sin(t))", false];
+
+/* a name set with name= wins */
+[ax__style_get(ax__animate_style(ax__default_style(), explicit(k*x, x, 0, 1)), name),
+ ax__style_get(ax__animate_style(ax__style_set(ax__default_style(), name, "mine"),
+                                 explicit(k*x, x, 0, 1)), name)];
+["k*x", "mine"];
+
+/* every frame carries the steady name, not the frame's value */
+block([inner: explicit(sin(k*x), x, -1, 1), fr],
+  fr: ax__build_frames_2d([[inner, ax__animate_style(ax__default_style(), inner), 0, 1]],
+                          k, [0.5, 1.5], []),
+  [length(fr),
+   every(lambda([f], numberp(ssearch("\"name\":\"sin(k*x)\"", f))), fr),
+   ssearch("sin(0.5*x)", first(fr))]);
+[2, true, false];
+
+/* an animated line keeps every point in every frame, so the tween
+   between frames pairs them up; a static line is left to Plotly */
+block([inner: explicit(sin(k*x), x, -1, 1), fr],
+  fr: ax__build_frames_2d([[inner, ax__animate_style(ax__default_style(), inner), 0, 1]],
+                          k, [0.5, 1.5], []),
+  [every(lambda([f], numberp(ssearch("\"simplify\":false", f))), fr),
+   ssearch("simplify", ax__build_line_style(ax__default_style()))]);
+[true, false];
+
+/* line and marker animations play without a full redraw; contours and
+   animated labels need one */
+[ax__animate_scatter_only_p([[explicit(k*x, x, 0, 1), [], 0, 1],
+                             [points([[k, 1]]), [], 1, 1]], []),
+ ax__animate_scatter_only_p([[ax_contour(k*x*y, x, 0, 1, y, 0, 1), [], 0, 1]], []),
+ ax__animate_scatter_only_p([], [["annotations", [], [label(["a", k, 0]), []]]])];
+[true, false, false];
+
+/* the redraw flag reaches the play button and the slider */
+[numberp(ssearch("\"redraw\":false},\"fromcurrent\"", ax__build_updatemenus_json([], false))),
+ numberp(ssearch("\"redraw\":true},\"fromcurrent\"", ax__build_updatemenus_json([], true))),
+ numberp(ssearch("\"redraw\":false}", ax__build_slider_json([0.0, 1.0], k, [], false)))];
+[true, true, true];
+
 /* --- numerics (optional): ndarray inputs and the animate fast path ------ */
 
 /* numerics is optional.  Without it, each test that needs it is skipped by
