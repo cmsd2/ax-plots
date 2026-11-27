@@ -7,6 +7,19 @@ compatibility).
 
 ## [Unreleased]
 
+### Added
+
+- **Graphs**: `ax_graph(positions, edges)` draws points joined by edges in
+  `ax_draw2d` or `ax_draw3d`, with one trace per edge class (`[i, j, k]`)
+  plus one for the vertices, instead of a trace per edge.  It takes the
+  `[n, edges]` form of the permutations package's `pgrp_cayley_graph`, so
+  a Cayley graph and `pgrp_spectral_layout` draw in one call.  Options:
+  `edge_colors`, `edge_names`, `vertex_color`, `vertex_labels`, and
+  `marker_size = 0` for edges alone.
+- **Plots of graphs hide their axes**: a plot holding only `ax_graph`
+  objects hides axes, grid and legend and keeps equal scales.  In 3D this
+  is the new `diagram=true`, which also works on other 3D plots.
+
 ### Fixed
 
 - **Animations play smoothly**: an animated object's legend name changed at

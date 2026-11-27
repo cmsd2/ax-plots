@@ -209,6 +209,8 @@ it applies to every later `explicit` until reset with `filled_func=false`.
 `diagram=true` sets up a figure that is a picture rather than a graph: axes,
 grid, legend and hover off, equal x and y scales (`aspect_ratio=true`) and
 `height=fit`.  Options given explicitly win, e.g. `diagram=true, xaxis=true`.
+A plot of `ax_graph` objects alone gets the same axes, grid, legend and
+scales by default, but keeps hover, so a vertex shows its number.
 
 `height=fit` computes the height at which the plot area shows `xrange` and
 `yrange` at the aspect ratio (1, or `aspect_ratio` if it is a number) with no

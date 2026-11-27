@@ -147,7 +147,11 @@ ax__default_style() := [
   [filled_func, false],     /* explicit: true = fill to y=0; g(x) = fill between f and g (draw-compatible) */
   [legendgroup, false],     /* traces sharing a group toggle together in the legend */
   [line_shape, false],      /* "linear" / "spline" / "hv" / "vh" / "hvh" / "vhv" */
-  [layer, false]            /* shapes: "above" (Plotly default) or "below" the data */
+  [layer, false],           /* shapes: "above" (Plotly default) or "below" the data */
+  [edge_colors, false],     /* ax_graph: a colour per edge class, cycled */
+  [edge_names, false],      /* ax_graph: a legend name per edge class */
+  [vertex_color, false],    /* ax_graph: the vertices' colour (grey if false) */
+  [vertex_labels, false]    /* ax_graph: a label per vertex, drawn beside it */
 ]$
 
 /* Get a style value from the style state */
@@ -195,7 +199,9 @@ ax__trace_option_names : [color, fill_color, opacity, line_width, dash,
   decoration, decoration_amplitude, decoration_wavelength, decoration_pre, decoration_post,
   legendgroup, line_shape,
   /* shapes */
-  layer]$
+  layer,
+  /* ax_graph */
+  edge_colors, edge_names, vertex_color, vertex_labels]$
 
 /* Options accepted only inside an object, e.g. lines(xs, ys, showlegend=false).
    At top level, showlegend is the layout option. */
@@ -209,7 +215,7 @@ ax__draw_object_names : [explicit, parametric, points, lines, implicit,
   ax_contour, ax_heatmap, ax_bar, ax_histogram,
   ax_vector_field, ax_streamline,
   parametric_surface, ax_contour3d, ax_vector_field3d,
-  ax_box, ax_violin, ax_pie, ax_error_bar,
+  ax_box, ax_violin, ax_pie, ax_error_bar, ax_graph,
   animate]$
 
 /* Check if an argument is a layout option (e.g. title="Foo") */
@@ -2015,6 +2021,7 @@ ax__build_trace_2d(obj_in, style_in) := block([objop, split, obj, style],
   else if objop = ax_violin then ax__trace_violin_2d(obj, style)
   else if objop = ax_pie then ax__trace_pie_2d(obj, style)
   else if objop = ax_error_bar then ax__trace_error_bar_2d(obj, style)
+  else if objop = ax_graph then ax__trace_graph(obj, style, 2)
   else error("ax_draw2d: unsupported object type:", objop))$
 
 /* Dispatch to the correct 3D trace builder based on object type */
@@ -2031,7 +2038,121 @@ ax__build_trace_3d(obj_in, style_in) := block([objop, split, obj, style],
   else if objop = implicit then ax__trace_implicit_3d(obj, style)
   else if objop = ax_contour3d then ax__trace_contour3d(obj, style)
   else if objop = ax_vector_field3d then ax__trace_vector_field_3d(obj, style)
+  else if objop = ax_graph then ax__trace_graph(obj, style, 3)
   else error("ax_draw3d: unsupported object type:", objop))$
+
+/* ========================================================================
+ * Graphs: ax_graph(positions, edges)
+ * ======================================================================== */
+
+/* An edge's class: its third entry, or 1 for an edge [i, j] */
+ax__graph_class(ed) := if length(ed) = 3 then ed[3] else 1$
+
+/* Check ax_graph's arguments and return [positions, edges].  edges may be a
+   list of [i, j] or [i, j, k], or [n, edges] as the permutations package's
+   pgrp_cayley_graph returns. */
+ax__graph_parts(obj, dims) := block([a, pos, edges, n],
+  a: args(obj),
+  if length(a) # 2 then
+    error("ax_graph: expected ax_graph(positions, edges), got", obj),
+  pos: ax__maybe_list(a[1]),
+  edges: ax__maybe_list(a[2]),
+  if not listp(pos) then
+    error("ax_graph: expected a list of points, got", pos),
+  n: length(pos),
+  if listp(edges) and length(edges) = 2 and integerp(first(edges))
+     and listp(second(edges)) then (
+    if first(edges) # n then
+      error("ax_graph: the graph has", first(edges), "vertices but there are",
+            n, "positions"),
+    edges: second(edges)),
+  if not listp(edges) then
+    error("ax_graph: expected a list of edges [i, j] or [i, j, k], got", edges),
+  for pt in pos do
+    if not (listp(pt) and length(pt) = dims) then
+      error("ax_graph: expected points with", dims, "coordinates, got", pt),
+  for ed in edges do
+    if not (listp(ed) and (length(ed) = 2 or length(ed) = 3)
+            and integerp(ed[1]) and integerp(ed[2])
+            and ed[1] >= 1 and ed[1] <= n and ed[2] >= 1 and ed[2] <= n) then
+      error("ax_graph: expected an edge [i, j] or [i, j, k] with i and j in 1, ...,",
+            n, "got", ed),
+  [pos, edges])$
+
+/* One trace per edge class, each segment ended by a null so Plotly breaks
+   the line there, and one trace for the vertices unless marker_size = 0 */
+ax__trace_graph(obj, style, dims) := block(
+  [gp, pos, edges, classes, ecols, enames, axes, ttype, traces: [], sz],
+  gp: ax__graph_parts(obj, dims),
+  pos: gp[1], edges: gp[2],
+  axes: if dims = 3 then ["x", "y", "z"] else ["x", "y"],
+  ttype: if dims = 3 then "scatter3d" else "scatter",
+  classes: unique(map(ax__graph_class, edges)),
+  ecols: ax__style_get(style, edge_colors),
+  enames: ax__style_get(style, edge_names),
+  if ecols # false and not listp(ecols) then
+    error("ax_graph: edge_colors must be a list of colours, got", ecols),
+  if enames # false and not listp(enames) then
+    error("ax_graph: edge_names must be a list of names, got", enames),
+  for ci thru length(classes) do block([es, st, parts],
+    es: sublist(edges, lambda([ed], ax__graph_class(ed) = classes[ci])),
+    st: style,
+    if listp(ecols) and ecols # [] then
+      st: ax__style_set(st, color, ecols[mod(ci - 1, length(ecols)) + 1]),
+    if listp(enames) and ci <= length(enames) then
+      st: ax__style_set(st, name, enames[ci]),
+    if ax__style_get(st, hoverinfo) = false then
+      st: ax__style_set(st, hoverinfo, "skip"),
+    parts: makelist(
+      sconcat("\"", axes[d], "\":[",
+              simplode(flatten(map(lambda([ed], [ax__float_to_json(pos[ed[1]][d]),
+                                                 ax__float_to_json(pos[ed[2]][d]),
+                                                 "null"]), es)), ","),
+              "]"),
+      d, 1, dims),
+    parts: append(parts,
+      [sconcat("\"type\":\"", ttype, "\""),
+       "\"mode\":\"lines\"",
+       sconcat("\"line\":", ax__build_line_style(st))],
+      ax__build_trace_style(st,
+        if length(classes) = 1 then "edges" else sconcat("edges ", classes[ci]))),
+    traces: endcons(sconcat("{", simplode(parts, ","), "}"), traces)),
+  sz: ax__style_get(style, marker_size),
+  if sz # 0 then block([vst, vc, vlabels, parts],
+    vc: ax__style_get(style, vertex_color),
+    vst: ax__style_set(style, color, if vc = false then "#777777" else vc),
+    vlabels: ax__style_get(style, vertex_labels),
+    if vlabels # false and not (listp(vlabels) and length(vlabels) = length(pos)) then
+      error("ax_graph: vertex_labels must be a list with one label per vertex, got", vlabels),
+    if ax__style_get(vst, hoverinfo) = false then
+      vst: ax__style_set(vst, hoverinfo, "text"),
+    parts: makelist(
+      sconcat("\"", axes[d], "\":", ax__float_list_to_json(map(lambda([pt], pt[d]), pos))),
+      d, 1, dims),
+    parts: append(parts,
+      [sconcat("\"type\":\"", ttype, "\""),
+       if vlabels = false then "\"mode\":\"markers\"" else "\"mode\":\"markers+text\"",
+       sconcat("\"marker\":", ax__build_marker_style(vst)),
+       sconcat("\"text\":", ax__string_list_to_json(
+         if vlabels = false then makelist(string(i), i, 1, length(pos))
+         else map(lambda([l], if stringp(l) then l else string(l)), vlabels)))],
+      if vlabels = false then [] else ["\"textposition\":\"top center\""],
+      ax__build_trace_style(vst, "vertices")),
+    traces: endcons(sconcat("{", simplode(parts, ","), "}"), traces)),
+  traces)$
+
+/* Whether every draw object in the arguments is an ax_graph.  Such a plot
+   shows only the graph's arrangement, so it hides axes, grid and legend
+   and keeps equal scales unless told otherwise. */
+ax__graph_only_p(args_list) := block(
+  [objs: sublist(args_list, lambda([x], ax__is_draw_object(x)))],
+  objs # [] and every(lambda([x], op(x) = 'ax_graph), objs))$
+
+/* Add the defaults a graph-only plot gets, each unless given; diagram,
+   given either way, says which the user wants */
+ax__graph_layout_defaults(layout_opts, defaults) := block([keys: map(lhs, layout_opts)],
+  if member(diagram, keys) then layout_opts
+  else append(layout_opts, sublist(defaults, lambda([d], not member(lhs(d), keys)))))$
 
 /* ========================================================================
  * Layout builders
@@ -2201,7 +2322,12 @@ ax__margin_json(val) := block([m],
           ",\"b\":", ax__float_to_json(m[4]), "}"))$
 
 ax__build_layout_3d(opts) := block(
-  [parts, scene_parts, xaxis_parts, yaxis_parts, zaxis_parts],
+  [parts, scene_parts, xaxis_parts, yaxis_parts, zaxis_parts, diagram3d],
+  /* diagram=true: no axes, grid or legend and equal scales on all three
+     axes, the legend only where not given explicitly */
+  diagram3d: is(ax__layout_opt_value(opts, diagram, false) = true),
+  if diagram3d and not member(showlegend, map(lhs, opts)) then
+    opts: endcons('showlegend = false, opts),
   parts: [],
   scene_parts: [],
   xaxis_parts: [],
@@ -2268,6 +2394,11 @@ ax__build_layout_3d(opts) := block(
     xaxis_parts: endcons(ax__theme_axis_json(tc, true), xaxis_parts),
     yaxis_parts: endcons(ax__theme_axis_json(tc, true), yaxis_parts),
     zaxis_parts: endcons(ax__theme_axis_json(tc, true), zaxis_parts)),
+  if diagram3d then (
+    xaxis_parts: endcons("\"visible\":false", xaxis_parts),
+    yaxis_parts: endcons("\"visible\":false", yaxis_parts),
+    zaxis_parts: endcons("\"visible\":false", zaxis_parts),
+    scene_parts: endcons("\"aspectmode\":\"data\"", scene_parts)),
   scene_parts: endcons(sconcat("\"xaxis\":{", simplode(xaxis_parts, ","), "}"), scene_parts),
   scene_parts: endcons(sconcat("\"yaxis\":{", simplode(yaxis_parts, ","), "}"), scene_parts),
   scene_parts: endcons(sconcat("\"zaxis\":{", simplode(zaxis_parts, ","), "}"), scene_parts),
@@ -2843,6 +2974,10 @@ ax__draw2d_impl(ax__args_in, reuse_view_id) := block(
     else error("ax_draw2d: unrecognized argument:", item)
   ),
   ax__check_loop_option(layout_opts),
+  if ax__graph_only_p(ax__args) then
+    layout_opts: ax__graph_layout_defaults(layout_opts,
+      ['xaxis = false, 'yaxis = false, 'grid = false, 'showlegend = false,
+       'aspect_ratio = true]),
   layout_json: ax__build_layout_2d(layout_opts),
   annotations: ax__layout_items(lay, "annotations"),
   shapes: ax__layout_items(lay, "shapes"),
@@ -2950,6 +3085,8 @@ ax__draw3d_impl(ax__args_in, reuse_view_id) := block(
     else error("ax_draw3d: unrecognized argument:", item)
   ),
   ax__check_loop_option(layout_opts),
+  if ax__graph_only_p(ax__args) then
+    layout_opts: ax__graph_layout_defaults(layout_opts, ['diagram = true]),
   layout_json: ax__build_layout_3d(layout_opts),
   if has_anim then (
     param_values:     ax__animate_param_values(anim_lo, anim_hi, anim_n),
