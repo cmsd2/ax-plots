@@ -76,6 +76,7 @@ ax_draw2d(
 | `ax_error_bar` | Points with error bars |
 | `ax_vector_field` | 2D quiver plots |
 | `ax_streamline` | ODE streamlines / phase portraits (RK4) |
+| `ax_graph` | Graphs (vertices and edges) in 2D or 3D, a trace per edge class; draws `graphs` package graphs and `pgrp_cayley_graph` output |
 | `animate` | Animate any object over a parameter, with play button and slider |
 
 See the [full documentation](https://cmsd2.github.io/ax-plots/) for options,

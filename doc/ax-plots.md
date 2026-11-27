@@ -46,3 +46,7 @@ load("ax-plots");
 <!-- include: ax_contour.md -->
 <!-- include: ax_vector_field.md -->
 <!-- include: ax_streamline.md -->
+
+## Graphs
+
+<!-- include: ax_graph.md -->

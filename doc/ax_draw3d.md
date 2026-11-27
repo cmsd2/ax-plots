@@ -14,6 +14,7 @@ Draw 3D interactive plots using Plotly.js with WebGL rendering. Produces rotatab
 | `implicit` | `implicit(f(x,y,z) = c, x, x0, x1, y, y0, y1, z, z0, z1)` | The surface where the equation holds (an isosurface) |
 | `ax_contour3d` | `ax_contour3d(expr, x, x0, x1, y, y0, y1)` | A surface z = f(x,y) with contour lines, projected onto the floor |
 | `ax_vector_field3d` | `ax_vector_field3d(Fx, Fy, Fz, x, x0, x1, y, y0, y1, z, z0, z1)` | Cones showing a vector field on a grid |
+| `ax_graph` | `ax_graph([[x1,y1,z1],...], [[i,j],...])` or `ax_graph(g)` | A graph: points joined by edges, a trace per edge class, or a `graphs` package graph (see `ax_graph`) |
 | `animate` | `animate(object, [param, lo, hi])` | Any of the above over a parameter (see `animate`) |
 | `ax_trace` | `ax_trace(json_string)` | A raw Plotly trace, emitted verbatim |
 
@@ -97,5 +98,6 @@ As in `ax_draw2d`, arguments may be lists of objects, and
 | `plot_bgcolor` | Scene background color (default `"white"`; maps to `scene.bgcolor`) |
 | `paper_bgcolor` | Outer figure background color (default `"white"`) |
 | `theme` | `"light"` (default) or `"dark"`: background, grid, axis and text colours |
+| `diagram` | `true` hides the axes, grid and legend and gives the three axes equal scales; the default for a plot of `ax_graph` objects alone. An explicit `showlegend` wins |
 
 See also: `ax_plot2d`, `ax_draw2d`, `ax_polar`, `draw3d`
