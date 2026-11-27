@@ -13,7 +13,10 @@ compatibility).
   `ax_draw2d` or `ax_draw3d`, with one trace per edge class (`[i, j, k]`)
   plus one for the vertices, instead of a trace per edge.  It takes the
   `[n, edges]` form of the permutations package's `pgrp_cayley_graph`, so
-  a Cayley graph and `pgrp_spectral_layout` draw in one call.  Options:
+  a Cayley graph and `pgrp_spectral_layout` draw in one call.  It also
+  draws graphs from Maxima's `graphs` package, `ax_graph(g)` or
+  `ax_graph(g, positions)`, at their stored positions or a spring
+  embedding (2D or 3D).  Options:
   `edge_colors`, `edge_names`, `vertex_color`, `vertex_labels`, and
   `marker_size = 0` for edges alone.
 - **Plots of graphs hide their axes**: a plot holding only `ax_graph`

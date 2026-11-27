@@ -2,7 +2,15 @@
 
 A graph: points joined by edges. Use inside `ax_draw2d` or `ax_draw3d`.
 
+Calling forms:
+
+- `ax_graph(positions, edges)`: points and the edges between them
+- `ax_graph(g)`: a graph or digraph from Maxima's `graphs` package, at its stored positions, or at a spring embedding when it has none (in 3D, always a spring embedding)
+- `ax_graph(g, positions)`: a `graphs` graph at the positions given, either the package's own `[[v, [x, y]], ...]` (as `circular_positions` or `spring_embedding` return) or a list of points in increasing vertex order
+
 `positions` is a list of points, `[x, y]` in 2D or `[x, y, z]` in 3D; vertex i sits at `positions[i]`. `edges` is a list of `[i, j]` or `[i, j, k]`, where k is the edge's class: the edges of each class form one trace, so they share a colour and a legend entry. For a Cayley graph the class is the generator. `edges` may also be `[n, edges]`, the form the permutations package's `pgrp_cayley_graph` returns.
+
+For a `graphs` graph, the vertices keep their own numbers when hovered, and a digraph's arcs are drawn without arrows. ax-plots doesn't load the `graphs` package; load it yourself to build such graphs.
 
 The vertices form one more trace, grey unless `vertex_color` is given. Hovering a vertex shows its number, or its label from `vertex_labels`. Set `marker_size = 0` to draw the edges alone.
 
@@ -22,6 +30,12 @@ ax_draw3d(
   ax_graph([[1, 1, 1], [1, -1, -1], [-1, 1, -1], [-1, -1, 1]],
            [[1, 2], [1, 3], [1, 4], [2, 3], [2, 4], [3, 4]])
 )$
+
+/* Graphs from the graphs package, including one built from an adjacency matrix */
+load(graphs)$
+ax_draw2d(ax_graph(petersen_graph()))$
+ax_draw3d(ax_graph(dodecahedron_graph()))$
+ax_draw2d(ax_graph(from_adjacency_matrix(matrix([0,1,1,0], [1,0,1,1], [1,1,0,1], [0,1,1,0]))))$
 
 /* The Cayley graph of A5, laid out from the group alone: a football */
 load("permutations")$

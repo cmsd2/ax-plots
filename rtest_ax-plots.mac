@@ -689,6 +689,41 @@ done;
 ax_draw2d(ax_graph([[0,0],[1,0],[0,1]], [[1,2],[2,3],[3,1]]), title = "triangle");
 done;
 
+/* Graphs from Maxima's graphs package.  Before it's loaded nothing is a
+   graph object */
+ax__graphs_object_p([[0,0]]);
+false;
+
+(load(graphs), [ax__graphs_object_p(cycle_graph(4)), ax__graphs_object_p([[0,0]])]);
+[true, false];
+
+/* Positions in increasing vertex order (vertices() lists them the other
+   way); edges renumbered from 1; hover shows the graph's own vertex names */
+block([t: ax__trace_graph(ax_graph(cycle_graph(4), [[0,0],[1,0],[1,1],[0,1]]),
+                          ax__default_style(), 2)],
+  [length(t),
+   numberp(ssearch("\"x\":[0.0,0.0,null,1.0,0.0,null,1.0,1.0,null,0.0,1.0,null]", t[1])),
+   numberp(ssearch("\"text\":[\"0\",\"1\",\"2\",\"3\"]", t[2]))]);
+[2, true, true];
+
+/* The graphs package's own [[v, [x, y]], ...] positions */
+block([c: cycle_graph(4), t],
+  t: ax__trace_graph(ax_graph(c, circular_positions(c)), ax__default_style(), 2),
+  length(t));
+2;
+
+/* No positions: the graph's stored ones, or a spring embedding in 3D */
+[length(ax__trace_graph(ax_graph(petersen_graph()), ax__default_style(), 2)),
+ numberp(ssearch("scatter3d",
+   first(ax__trace_graph(ax_graph(dodecahedron_graph()), ax__default_style(), 3))))];
+[2, true];
+
+errcatch(ax__trace_graph(ax_graph(cycle_graph(4), [[0,0]]), ax__default_style(), 2));
+[];
+
+ax_draw2d(ax_graph(from_adjacency_matrix(matrix([0,1,1],[1,0,1],[1,1,0]))));
+done;
+
 /* --- animate() wrapper -------------------------------------------------- */
 
 /* detection */

@@ -2048,13 +2048,47 @@ ax__build_trace_3d(obj_in, style_in) := block([objop, split, obj, style],
 /* An edge's class: its third entry, or 1 for an edge [i, j] */
 ax__graph_class(ed) := if length(ed) = 3 then ed[3] else 1$
 
-/* Check ax_graph's arguments and return [positions, edges].  edges may be a
-   list of [i, j] or [i, j, k], or [n, edges] as the permutations package's
-   pgrp_cayley_graph returns. */
-ax__graph_parts(obj, dims) := block([a, pos, edges, n],
+/* Whether x is a graph or digraph from Maxima's graphs package.  ax-plots
+   doesn't load that package; is_graph exists only once the user has. */
+ax__graphs_object_p(x) :=
+  ?fboundp(is_graph) # false and (is_graph(x) or is_digraph(x))$
+
+/* A graphs-package graph as [positions, edges, vertex names], its vertices
+   in increasing order numbered from 1 (vertices(g) lists them decreasing).
+   pos is false (the graph's stored positions, or a spring embedding when
+   it has none in this many dimensions), the graphs package's
+   [[v, [x, y]], ...], or a list of points in increasing vertex order. */
+ax__graphs_parts(g, pos, dims) := block([vs, ix],
+  vs: sort(vertices(g)),
+  ix: makelist([vs[i], i], i, 1, length(vs)),
+  if pos = false then (
+    pos: get_positions(g),
+    if pos = false or pos = [] or length(second(first(pos))) # dims then
+      pos: spring_embedding(g, 50, [], dims, false)),
+  pos: ax__maybe_list(pos),
+  if listp(pos) and pos # [] and listp(first(pos)) and length(first(pos)) = 2
+     and listp(second(first(pos))) then
+    pos: map(lambda([v], assoc(v, pos)), vs),
+  if not listp(pos) or length(pos) # length(vs) then
+    error("ax_graph: expected a position for each of the", length(vs),
+          "vertices, got", pos),
+  [pos,
+   map(lambda([ed], [assoc(ed[1], ix), assoc(ed[2], ix)]), edges(g)),
+   map(string, vs)])$
+
+/* Check ax_graph's arguments and return [positions, edges, vertex names],
+   the names false for numbering from 1.  The arguments are a graph from
+   the graphs package, optionally with positions, or positions and edges:
+   a list of [i, j] or [i, j, k], or [n, edges] as the permutations
+   package's pgrp_cayley_graph returns. */
+ax__graph_parts(obj, dims) := block([a, pos, edges, n, names: false],
   a: args(obj),
+  if (length(a) = 1 or length(a) = 2) and ax__graphs_object_p(a[1]) then block([gp],
+    gp: ax__graphs_parts(a[1], if length(a) = 2 then a[2] else false, dims),
+    a: [gp[1], gp[2]],
+    names: gp[3]),
   if length(a) # 2 then
-    error("ax_graph: expected ax_graph(positions, edges), got", obj),
+    error("ax_graph: expected ax_graph(positions, edges) or ax_graph(g) for a graph from the graphs package, got", obj),
   pos: ax__maybe_list(a[1]),
   edges: ax__maybe_list(a[2]),
   if not listp(pos) then
@@ -2077,7 +2111,7 @@ ax__graph_parts(obj, dims) := block([a, pos, edges, n],
             and ed[1] >= 1 and ed[1] <= n and ed[2] >= 1 and ed[2] <= n) then
       error("ax_graph: expected an edge [i, j] or [i, j, k] with i and j in 1, ...,",
             n, "got", ed),
-  [pos, edges])$
+  [pos, edges, names])$
 
 /* One trace per edge class, each segment ended by a null so Plotly breaks
    the line there, and one trace for the vertices unless marker_size = 0 */
@@ -2134,7 +2168,8 @@ ax__trace_graph(obj, style, dims) := block(
        if vlabels = false then "\"mode\":\"markers\"" else "\"mode\":\"markers+text\"",
        sconcat("\"marker\":", ax__build_marker_style(vst)),
        sconcat("\"text\":", ax__string_list_to_json(
-         if vlabels = false then makelist(string(i), i, 1, length(pos))
+         if vlabels = false then
+           (if gp[3] # false then gp[3] else makelist(string(i), i, 1, length(pos)))
          else map(lambda([l], if stringp(l) then l else string(l)), vlabels)))],
       if vlabels = false then [] else ["\"textposition\":\"top center\""],
       ax__build_trace_style(vst, "vertices")),
